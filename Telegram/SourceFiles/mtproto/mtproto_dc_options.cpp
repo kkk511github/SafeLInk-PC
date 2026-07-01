@@ -29,52 +29,39 @@ struct BuiltInDc {
 };
 
 const BuiltInDc kBuiltInDcs[] = {
-	{ 1, "149.154.175.50" , 443 },
-	{ 2, "149.154.167.51" , 443 },
-	{ 2, "95.161.76.100"  , 443 },
-	{ 3, "149.154.175.100", 443 },
-	{ 4, "149.154.167.91" , 443 },
-	{ 5, "149.154.171.5"  , 443 },
+	{ 2, "64.83.17.182", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsIPv6[] = {
-	{ 1, "2001:0b28:f23d:f001:0000:0000:0000:000a", 443 },
-	{ 2, "2001:067c:04e8:f002:0000:0000:0000:000a", 443 },
-	{ 3, "2001:0b28:f23d:f003:0000:0000:0000:000a", 443 },
-	{ 4, "2001:067c:04e8:f004:0000:0000:0000:000a", 443 },
-	{ 5, "2001:0b28:f23f:f005:0000:0000:0000:000a", 443 },
+	{ 2, "64.83.17.182", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-	{ 1, "149.154.175.10" , 443 },
-	{ 2, "149.154.167.40" , 443 },
-	{ 3, "149.154.175.117", 443 }
+	{ 2, "64.83.17.182", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsIPv6Test[] = {
-	{ 1, "2001:0b28:f23d:f001:0000:0000:0000:000e", 443 },
-	{ 2, "2001:067c:04e8:f002:0000:0000:0000:000e", 443 },
-	{ 3, "2001:0b28:f23d:f003:0000:0000:0000:000e", 443 }
+	{ 2, "64.83.17.182", 2398 },
 };
 
 const char *kTestPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEAyMEdY1aR+sCR3ZSJrtztKTKqigvO/vBfqACJLZtS7QMgCGXJ6XIR\n\
-yy7mx66W0/sOFa7/1mAZtEoIokDP3ShoqF4fVNb6XeqgQfaUHd8wJpDWHcR2OFwv\n\
-plUUI1PLTktZ9uW2WE23b+ixNwJjJGwBDJPQEQFBE+vfmH0JP503wr5INS1poWg/\n\
-j25sIWeYPHYeOrFp/eXaqhISP6G+q2IeTaWTXpwZj4LzXq5YOpk4bYEQ6mvRq7D1\n\
-aHWfYmlEGepfaYR8Q0YqvvhYtMte3ITnuSJs171+GDqpdKcSwHnd6FudwGO4pcCO\n\
-j4WcDuXc2CTHgH8gFTNhp/Y8/SpDOhvn9QIDAQAB\n\
+MIIBCgKCAQEA5HwU3vuVCHBiQk6KYznU8YuaCABYUtQlq5XbHA07DS+LOrnsZ4zF\n\
+d3uz8B+Tz/ZiZ5LLqoULE+vgPDt4L9uyVgMalYxkVPRoGG+vLGRWzGFfiQNmhNNr\n\
+puCxmZJMTnduTGb4dN9x+YynJWYkpOjSyRD7uuzKEadt1iO1iGLxNTyfUYxcTQvA\n\
+qoqfy/gvgmQXcK+YSIdiQq237PIyNg3/SKKF8ytbdimy/3ie3W8cYnUkG+m69hYt\n\
+lV4ElPMcfQKvFlKkh8IiHLJFV6MKTT8y7V+qYGRRnSbKI6XK5pp8MoB/DsG0N5MN\n\
+puBo+D7wAx0SQM48ykUEQ1YNsRrj0A9qowIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 const char *kPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEA6LszBcC1LGzyr992NzE0ieY+BSaOW622Aa9Bd4ZHLl+TuFQ4lo4g\n\
-5nKaMBwK/BIb9xUfg0Q29/2mgIR6Zr9krM7HjuIcCzFvDtr+L0GQjae9H0pRB2OO\n\
-62cECs5HKhT5DZ98K33vmWiLowc621dQuwKWSQKjWf50XYFw42h21P2KXUGyp2y/\n\
-+aEyZ+uVgLLQbRA1dEjSDZ2iGRy12Mk5gpYc397aYp438fsJoHIgJ2lgMv5h7WY9\n\
-t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n\
-5+bfo3Nhmcyvk5ftB0WkJ9z6bNZ7yxrP8wIDAQAB\n\
+MIIBCgKCAQEA5HwU3vuVCHBiQk6KYznU8YuaCABYUtQlq5XbHA07DS+LOrnsZ4zF\n\
+d3uz8B+Tz/ZiZ5LLqoULE+vgPDt4L9uyVgMalYxkVPRoGG+vLGRWzGFfiQNmhNNr\n\
+puCxmZJMTnduTGb4dN9x+YynJWYkpOjSyRD7uuzKEadt1iO1iGLxNTyfUYxcTQvA\n\
+qoqfy/gvgmQXcK+YSIdiQq237PIyNg3/SKKF8ytbdimy/3ie3W8cYnUkG+m69hYt\n\
+lV4ElPMcfQKvFlKkh8IiHLJFV6MKTT8y7V+qYGRRnSbKI6XK5pp8MoB/DsG0N5MN\n\
+puBo+D7wAx0SQM48ykUEQ1YNsRrj0A9qowIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 } // namespace
@@ -173,7 +160,7 @@ void DcOptions::constructFromBuiltIn() {
 		? gsl::make_span(kBuiltInDcsTest)
 		: gsl::make_span(kBuiltInDcs).subspan(0);
 	for (const auto &entry : list) {
-		const auto flags = Flag::f_static | 0;
+		const auto flags = Flag::f_static | Flag::f_tcpo_only;
 		applyOneGuarded(entry.id, flags, entry.ip, entry.port, {});
 		DEBUG_LOG(("MTP Info: adding built in DC %1 connect option: %2:%3"
 			).arg(entry.id
@@ -185,7 +172,7 @@ void DcOptions::constructFromBuiltIn() {
 		? gsl::make_span(kBuiltInDcsIPv6Test)
 		: gsl::make_span(kBuiltInDcsIPv6).subspan(0);
 	for (const auto &entry : listv6) {
-		const auto flags = Flag::f_static | Flag::f_ipv6;
+		const auto flags = Flag::f_static | Flag::f_tcpo_only;
 		applyOneGuarded(entry.id, flags, entry.ip, entry.port, {});
 		DEBUG_LOG(("MTP Info: adding built in DC %1 IPv6 connect option: "
 			"%2:%3"
@@ -476,96 +463,8 @@ QByteArray DcOptions::serialize() const {
 }
 
 bool DcOptions::constructFromSerialized(const QByteArray &serialized) {
-	QDataStream stream(serialized);
-	stream.setVersion(QDataStream::Qt_5_1);
-
-	auto minusVersion = qint32(0);
-	stream >> minusVersion;
-	const auto version = (minusVersion < 0) ? (-minusVersion) : 0;
-
-	auto count = qint32(0);
-	if (version > 0) {
-		stream >> count;
-	} else {
-		count = minusVersion;
-	}
-	if (stream.status() != QDataStream::Ok) {
-		LOG(("MTP Error: Bad data for DcOptions::constructFromSerialized()"));
-		return false;
-	}
-
-	WriteLocker lock(this);
-	_data.clear();
-	for (auto i = 0; i != count; ++i) {
-		qint32 id = 0, flags = 0, port = 0, ipSize = 0;
-		stream >> id >> flags >> port >> ipSize;
-
-		// https://stackoverflow.com/questions/1076714/max-length-for-client-ip-address
-		constexpr auto kMaxIpSize = 45;
-		if (ipSize <= 0 || ipSize > kMaxIpSize) {
-			LOG(("MTP Error: Bad data inside DcOptions::constructFromSerialized()"));
-			return false;
-		}
-
-		auto ip = std::string(ipSize, ' ');
-		stream.readRawData(ip.data(), ipSize);
-
-		constexpr auto kMaxSecretSize = 32;
-		auto secret = bytes::vector();
-		if (version > 0) {
-			auto secretSize = qint32(0);
-			stream >> secretSize;
-			if (secretSize < 0 || secretSize > kMaxSecretSize) {
-				LOG(("MTP Error: Bad data inside DcOptions::constructFromSerialized()"));
-				return false;
-			} else if (secretSize > 0) {
-				secret.resize(secretSize);
-				stream.readRawData(
-					reinterpret_cast<char*>(secret.data()),
-					secretSize);
-			}
-		}
-
-		if (stream.status() != QDataStream::Ok) {
-			LOG(("MTP Error: Bad data inside DcOptions::constructFromSerialized()"));
-			return false;
-		}
-
-		applyOneGuarded(
-			DcId(id),
-			Flags::from_raw(flags),
-			ip,
-			port,
-			secret);
-	}
-
-	// Read CDN config
-	if (!stream.atEnd() && version > 1) {
-		auto count = qint32(0);
-		stream >> count;
-		if (stream.status() != QDataStream::Ok) {
-			LOG(("MTP Error: Bad data for CDN config in DcOptions::constructFromSerialized()"));
-			return false;
-		}
-
-		for (auto i = 0; i != count; ++i) {
-			qint32 dcId = 0;
-			bytes::vector n, e;
-			stream >> dcId >> Serialize::bytes(n) >> Serialize::bytes(e);
-			if (stream.status() != QDataStream::Ok) {
-				LOG(("MTP Error: Bad data for CDN config inside DcOptions::constructFromSerialized()"));
-				return false;
-			}
-
-			auto key = RSAPublicKey(n, e);
-			if (key.valid()) {
-				_cdnPublicKeys[dcId].emplace(key.fingerprint(), std::move(key));
-			} else {
-				LOG(("MTP Error: Could not read valid CDN public key."));
-				return false;
-			}
-		}
-	}
+	Q_UNUSED(serialized);
+	constructFromBuiltIn();
 	return true;
 }
 
