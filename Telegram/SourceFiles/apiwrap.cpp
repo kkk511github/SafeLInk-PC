@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_confirm_phone.h"
 #include "api/api_unread_things.h"
 #include "api/api_ringtones.h"
+#include "api/api_safelink_private_chat.h"
 #include "api/api_compose_with_ai.h"
 #include "api/api_transcribes.h"
 #include "api/api_premium.h"
@@ -205,6 +206,7 @@ ApiWrap::ApiWrap(not_null<Main::Session*> session)
 , _composeWithAi(std::make_unique<Api::ComposeWithAi>(this))
 , _transcribes(std::make_unique<Api::Transcribes>(this))
 , _premium(std::make_unique<Api::Premium>(this))
+, _safeLinkPrivateChat(std::make_unique<Api::SafeLinkPrivateChat>(this))
 , _usernames(std::make_unique<Api::Usernames>(this))
 , _websites(std::make_unique<Api::Websites>(this))
 , _peerColors(std::make_unique<Api::PeerColors>(this)) {
@@ -5248,6 +5250,10 @@ Api::Transcribes &ApiWrap::transcribes() {
 
 Api::Premium &ApiWrap::premium() {
 	return *_premium;
+}
+
+Api::SafeLinkPrivateChat &ApiWrap::safeLinkPrivateChat() {
+	return *_safeLinkPrivateChat;
 }
 
 Api::Usernames &ApiWrap::usernames() {

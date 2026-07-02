@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_chat_participants.h"
 #include "api/api_global_privacy.h"
 #include "api/api_ringtones.h"
+#include "api/api_safelink_private_chat.h"
 #include "api/api_text_entities.h"
 #include "api/api_user_privacy.h"
 #include "api/api_unread_things.h"
@@ -2413,6 +2414,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 	case mtpc_updateChannel: {
 		auto &d = update.c_updateChannel();
 		if (const auto channel = session().data().channelLoaded(d.vchannel_id())) {
+			session().api().safeLinkPrivateChat().reload(channel);
 			channel->inviter = UserId(0);
 			channel->inviteViaRequest = false;
 			if (channel->amIn()) {

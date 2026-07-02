@@ -305,6 +305,8 @@ private:
 	bool prependRow(not_null<PeerData*> participant);
 	bool removeRow(not_null<PeerData*> participant);
 	void refreshCustomStatus(not_null<PeerListRow*> row) const;
+	bool blocksPrivateChat(not_null<UserData*> user) const;
+	void showPrivateChatForbiddenToast() const;
 	bool feedMegagroupLastParticipants();
 	Type computeType(not_null<PeerData*> participant) const;
 	void recomputeTypeFor(not_null<PeerData*> participant);

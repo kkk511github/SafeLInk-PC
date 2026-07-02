@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 #include "apiwrap.h"
 #include "api/api_chat_participants.h"
+#include "api/api_safelink_private_chat.h"
 #include "main/main_session.h"
 #include "storage/storage_account.h"
 #include "core/application.h"
@@ -350,6 +351,9 @@ void FieldAutocomplete::showFiltered(
 	_chat = peer->asChat();
 	_user = peer->asUser();
 	_channel = peer->asChannel();
+	if (_channel && _channel->isMegagroup()) {
+		_channel->session().api().safeLinkPrivateChat().load(_channel);
+	}
 	if (query.isEmpty()) {
 		_type = Type::Mentions;
 		rowsUpdated(
@@ -503,9 +507,32 @@ void FieldAutocomplete::updateFiltered(bool resetScroll) {
 		const auto containsMentionUser = [&](not_null<UserData*> user) {
 			return mentionUserIndex(user) >= 0;
 		};
+		const auto safeLinkRestrictedMentions = [&] {
+			if (!_channel || !_channel->isMegagroup()) {
+				return false;
+			}
+			auto &safeLink = _channel->session().api().safeLinkPrivateChat();
+			return safeLink.forbidden(_channel)
+				&& !safeLink.currentUserCanBypass(_channel);
+		}();
+		if (safeLinkRestrictedMentions
+			&& _channel->mgInfo
+			&& !_channel->mgInfo->adminsLoaded) {
+			_channel->session().api().chatParticipants().requestAdmins(
+				_channel);
+		}
+		const auto safeLinkCanMention = [&](not_null<UserData*> user) {
+			return !safeLinkRestrictedMentions
+				|| _channel->session().api().safeLinkPrivateChat().canMention(
+					_channel,
+					user);
+		};
 		const auto pushMentionRow = [&](
 				not_null<UserData*> user,
 				MentionRow::Source source) {
+			if (!safeLinkCanMention(user)) {
+				return;
+			}
 			if (containsMentionUser(user)) {
 				return;
 			}

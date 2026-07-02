@@ -3036,4 +3036,7 @@ aicompose.getTone#b2e8ba03 tone:InputAiComposeTone = aicompose.Tones;
 aicompose.getTones#abd59201 hash:long = aicompose.Tones;
 aicompose.getToneExample#d1b4ab14 tone:InputAiComposeTone num:int = AiComposeToneExample;
 
+safelink.getGroupPrivateChatForbidden#06ebdea1 channel:InputChannel = Bool;
+safelink.toggleGroupPrivateChatForbidden#94ba7b67 channel:InputChannel enabled:Bool = Updates;
+
 // LAYER 227

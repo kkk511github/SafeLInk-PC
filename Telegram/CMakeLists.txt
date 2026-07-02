@@ -170,6 +170,8 @@ PRIVATE
     api/api_ringtones.h
     api/api_self_destruct.cpp
     api/api_self_destruct.h
+    api/api_safelink_private_chat.cpp
+    api/api_safelink_private_chat.h
     api/api_send_progress.cpp
     api/api_send_progress.h
     api/api_sending.cpp

@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "apiwrap.h"
 #include "api/api_credits.h"
 #include "api/api_peer_photo.h"
+#include "api/api_safelink_private_chat.h"
 #include "api/api_statistics.h"
 #include "api/api_user_names.h"
 #include "main/main_session.h"
@@ -436,6 +437,7 @@ private:
 	void fillAutoTranslateButton();
 	void fillSignaturesButton();
 	void fillHistoryVisibilityButton();
+	void fillPrivateChatForbiddenButton();
 	void fillManageSection();
 	void fillPendingRequestsButton();
 
@@ -1409,6 +1411,30 @@ void Controller::fillHistoryVisibilityButton() {
 	refreshHistoryVisibility();
 }
 
+void Controller::fillPrivateChatForbiddenButton() {
+	const auto channel = _peer->asMegagroup();
+	if (!channel) {
+		return;
+	}
+	auto &safeLink = channel->session().api().safeLinkPrivateChat();
+	safeLink.load(channel);
+
+	AddButtonWithCount(
+		_controls.buttonsLayout,
+		rpl::single(u"禁止私聊"_q),
+		safeLink.forbiddenValue(channel) | rpl::map([](bool forbidden) {
+			return forbidden ? u"开"_q : u"关"_q;
+		}),
+		[=] {
+			auto &safeLink = channel->session().api().safeLinkPrivateChat();
+			const auto toggled = !safeLink.forbidden(channel);
+			safeLink.setForbidden(channel, toggled, nullptr, [=] {
+				_navigation->showToast(u"设置失败"_q);
+			});
+		},
+		{ &st::menuIconBlock });
+}
+
 void Controller::fillManageSection() {
 	Expects(_controls.buttonsLayout != nullptr);
 
@@ -1493,6 +1519,9 @@ void Controller::fillManageSection() {
 			|| (channel->isBroadcast() && channel->canEditInformation()));
 	const auto canEditDirectMessages = isChannel
 		&& (channel->isBroadcast() && channel->canEditInformation());
+	const auto canEditPrivateChatForbidden = isChannel
+		&& channel->isMegagroup()
+		&& channel->canEditInformation();
 
 	::AddSkip(_controls.buttonsLayout, 0);
 
@@ -1578,6 +1607,9 @@ void Controller::fillManageSection() {
 			}) | rpl::flatten_latest(),
 			[=] { ShowEditPermissions(_navigation, _peer); },
 			{ &st::menuIconPermissions });
+	}
+	if (canEditPrivateChatForbidden) {
+		fillPrivateChatForbiddenButton();
 	}
 	if (canEditInviteLinks) {
 		auto count = Info::Profile::MigratedOrMeValue(

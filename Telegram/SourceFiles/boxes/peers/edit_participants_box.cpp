@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "menu/menu_antispam_validator.h"
 #include "mtproto/mtproto_config.h"
 #include "apiwrap.h"
+#include "api/api_safelink_private_chat.h"
 #include "lang/lang_keys.h"
 #include "dialogs/dialogs_indexed_list.h"
 #include "data/data_peer_values.h"
@@ -1097,6 +1098,10 @@ ParticipantsBoxController::ParticipantsBoxController(
 	if (const auto channel = _peer->asChannel()) {
 		subscribeToCreatorChange(channel);
 	}
+	if (const auto channel = _peer->asMegagroup()) {
+		channel->session().api().safeLinkPrivateChat().load(channel);
+		channel->session().api().chatParticipants().requestAdmins(channel);
+	}
 }
 
 Main::Session &ParticipantsBoxController::session() const {
@@ -1413,6 +1418,24 @@ rpl::producer<int> ParticipantsBoxController::onlineCountValue() const {
 
 rpl::producer<int> ParticipantsBoxController::fullCountValue() const {
 	return _fullCountValue.value();
+}
+
+bool ParticipantsBoxController::blocksPrivateChat(
+		not_null<UserData*> user) const {
+	const auto channel = _peer->asMegagroup();
+	return channel
+		&& channel->session().api().safeLinkPrivateChat().blocksPrivateChat(
+			channel,
+			user);
+}
+
+void ParticipantsBoxController::showPrivateChatForbiddenToast() const {
+	const auto text = u"此群已禁止与普通成员私聊"_q;
+	if (_navigation) {
+		_navigation->showToast(text);
+	} else if (const auto show = delegate()->peerListUiShow()) {
+		show->showToast(text);
+	}
 }
 
 void ParticipantsBoxController::setStoriesShown(bool shown) {
@@ -1850,6 +1873,11 @@ void ParticipantsBoxController::rowClicked(not_null<PeerListRow*> row) {
 		return;
 	}
 
+	if (user && blocksPrivateChat(user)) {
+		showPrivateChatForbiddenToast();
+		return;
+	}
+
 	if (_role == Role::Admins) {
 		Assert(user != nullptr);
 		showAdmin(user);
@@ -1986,6 +2014,10 @@ base::unique_qptr<Ui::PopupMenu> ParticipantsBoxController::rowContextMenu(
 				? tr::lng_context_view_channel
 				: tr::lng_context_view_group)(tr::now),
 			crl::guard(this, [=, this] {
+				if (user && blocksPrivateChat(user)) {
+					showPrivateChatForbiddenToast();
+					return;
+				}
 				_navigation->parentController()->show(
 					PrepareShortInfoBox(participant, _navigation));
 			}),

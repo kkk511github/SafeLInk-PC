@@ -88,6 +88,7 @@ class ComposeWithAi;
 class Transcribes;
 class Premium;
 class ReadMetrics;
+class SafeLinkPrivateChat;
 class Usernames;
 class Websites;
 
@@ -445,6 +446,7 @@ public:
 	[[nodiscard]] Api::ComposeWithAi &composeWithAi();
 	[[nodiscard]] Api::Transcribes &transcribes();
 	[[nodiscard]] Api::Premium &premium();
+	[[nodiscard]] Api::SafeLinkPrivateChat &safeLinkPrivateChat();
 	[[nodiscard]] Api::Usernames &usernames();
 	[[nodiscard]] Api::Websites &websites();
 	[[nodiscard]] Api::PeerColors &peerColors();
@@ -806,6 +808,7 @@ private:
 	const std::unique_ptr<Api::ComposeWithAi> _composeWithAi;
 	const std::unique_ptr<Api::Transcribes> _transcribes;
 	const std::unique_ptr<Api::Premium> _premium;
+	const std::unique_ptr<Api::SafeLinkPrivateChat> _safeLinkPrivateChat;
 	const std::unique_ptr<Api::Usernames> _usernames;
 	const std::unique_ptr<Api::Websites> _websites;
 	const std::unique_ptr<Api::PeerColors> _peerColors;
