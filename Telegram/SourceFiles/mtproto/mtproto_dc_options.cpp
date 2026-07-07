@@ -29,39 +29,39 @@ struct BuiltInDc {
 };
 
 const BuiltInDc kBuiltInDcs[] = {
-	{ 2, "64.83.17.182", 2398 },
+	{ 2, "154.201.73.55", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsIPv6[] = {
-	{ 2, "64.83.17.182", 2398 },
+	{ 2, "154.201.73.55", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-	{ 2, "64.83.17.182", 2398 },
+	{ 2, "154.201.73.55", 2398 },
 };
 
 const BuiltInDc kBuiltInDcsIPv6Test[] = {
-	{ 2, "64.83.17.182", 2398 },
+	{ 2, "154.201.73.55", 2398 },
 };
 
 const char *kTestPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEA5HwU3vuVCHBiQk6KYznU8YuaCABYUtQlq5XbHA07DS+LOrnsZ4zF\n\
-d3uz8B+Tz/ZiZ5LLqoULE+vgPDt4L9uyVgMalYxkVPRoGG+vLGRWzGFfiQNmhNNr\n\
-puCxmZJMTnduTGb4dN9x+YynJWYkpOjSyRD7uuzKEadt1iO1iGLxNTyfUYxcTQvA\n\
-qoqfy/gvgmQXcK+YSIdiQq237PIyNg3/SKKF8ytbdimy/3ie3W8cYnUkG+m69hYt\n\
-lV4ElPMcfQKvFlKkh8IiHLJFV6MKTT8y7V+qYGRRnSbKI6XK5pp8MoB/DsG0N5MN\n\
-puBo+D7wAx0SQM48ykUEQ1YNsRrj0A9qowIDAQAB\n\
+MIIBCgKCAQEAxF//0M0+/5PzgdNagTX+J+dJgr75ZCTuiG8i4x7YwmJF+jiOGCjm\n\
+7X7BLCaMc1+hOZYDL3+Gvle/AKykW1qouaCJMVx/H+2l8LFXLelZ2PLawTb8A7Bl\n\
+TqWzL3db5BugMNWziL9TuhR8In1bwKY07QVpR9in5zjAsAGLBk+mGt0DnVyMf1Xo\n\
+p2lLCFNmm0F4ykcAeaLCCIPbGWddliLY8xEEhI4GO2l1U3kZMwIOdOnAGJFtgUAo\n\
+Te+FHR6F1s9adCVZB1teL/hf9R+WmekJwygVz0MYEH7y6U49T45+/W7OF6X6g0W0\n\
+j1uSSrsY4qN7twxbTad9zdGZ7ys+9v+PuQIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 const char *kPublicRSAKeys[] = { "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEA5HwU3vuVCHBiQk6KYznU8YuaCABYUtQlq5XbHA07DS+LOrnsZ4zF\n\
-d3uz8B+Tz/ZiZ5LLqoULE+vgPDt4L9uyVgMalYxkVPRoGG+vLGRWzGFfiQNmhNNr\n\
-puCxmZJMTnduTGb4dN9x+YynJWYkpOjSyRD7uuzKEadt1iO1iGLxNTyfUYxcTQvA\n\
-qoqfy/gvgmQXcK+YSIdiQq237PIyNg3/SKKF8ytbdimy/3ie3W8cYnUkG+m69hYt\n\
-lV4ElPMcfQKvFlKkh8IiHLJFV6MKTT8y7V+qYGRRnSbKI6XK5pp8MoB/DsG0N5MN\n\
-puBo+D7wAx0SQM48ykUEQ1YNsRrj0A9qowIDAQAB\n\
+MIIBCgKCAQEAxF//0M0+/5PzgdNagTX+J+dJgr75ZCTuiG8i4x7YwmJF+jiOGCjm\n\
+7X7BLCaMc1+hOZYDL3+Gvle/AKykW1qouaCJMVx/H+2l8LFXLelZ2PLawTb8A7Bl\n\
+TqWzL3db5BugMNWziL9TuhR8In1bwKY07QVpR9in5zjAsAGLBk+mGt0DnVyMf1Xo\n\
+p2lLCFNmm0F4ykcAeaLCCIPbGWddliLY8xEEhI4GO2l1U3kZMwIOdOnAGJFtgUAo\n\
+Te+FHR6F1s9adCVZB1teL/hf9R+WmekJwygVz0MYEH7y6U49T45+/W7OF6X6g0W0\n\
+j1uSSrsY4qN7twxbTad9zdGZ7ys+9v+PuQIDAQAB\n\
 -----END RSA PUBLIC KEY-----" };
 
 } // namespace
