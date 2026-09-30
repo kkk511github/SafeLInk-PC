@@ -17,6 +17,7 @@ enum class StartResult : uchar;
 
 namespace MTP {
 enum class Environment : uchar;
+struct SafeLinkServer;
 } // namespace MTP
 
 namespace Main {
@@ -69,10 +70,16 @@ public:
 	[[nodiscard]] rpl::producer<> unreadBadgeChanges() const;
 	void notifyUnreadBadgeChanged();
 
-	[[nodiscard]] not_null<Main::Account*> add(MTP::Environment environment);
+	[[nodiscard]] not_null<Main::Account*> add(
+		MTP::Environment environment,
+		const MTP::SafeLinkServer *server = nullptr);
+	bool addServerAccount(const MTP::SafeLinkServer &server);
 	void maybeActivate(not_null<Main::Account*> account);
 	void activate(not_null<Main::Account*> account);
-	void addActivated(MTP::Environment environment, bool newWindow = false);
+	void addActivated(
+		MTP::Environment environment,
+		bool newWindow = false,
+		const MTP::SafeLinkServer *server = nullptr);
 
 	// Drops session-less accounts that have no window open for them.
 	void removeRedundantAccounts();

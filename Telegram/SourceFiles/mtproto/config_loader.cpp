@@ -44,7 +44,9 @@ void ConfigLoader::load() {
 		_enumDCTimer.callOnce(kEnumerateDcTimeout);
 	} else {
 		auto ids = _instance->dcOptions().configEnumDcIds();
-		Assert(!ids.empty());
+		if (ids.empty()) {
+			return;
+		}
 		_enumCurrent = ids.front();
 		enumerate();
 	}
@@ -100,7 +102,9 @@ void ConfigLoader::enumerate() {
 		_enumCurrent = _instance->mainDcId();
 	}
 	auto ids = _instance->dcOptions().configEnumDcIds();
-	Assert(!ids.empty());
+	if (ids.empty()) {
+		return;
+	}
 
 	auto i = std::find(ids.cbegin(), ids.cend(), _enumCurrent);
 	if (i == ids.cend() || (++i) == ids.cend()) {
@@ -116,6 +120,12 @@ void ConfigLoader::enumerate() {
 }
 
 void ConfigLoader::refreshSpecialLoader() {
+	// Self-hosted accounts must never discover endpoints from Telegram's
+	// public fallback infrastructure, even when their own server is offline.
+	if (!_instance->config().serverBinding().isEmpty()) {
+		_specialLoader.reset();
+		return;
+	}
 	if (_proxyEnabled || _instance->isKeysDestroyer()) {
 		_specialLoader.reset();
 		return;

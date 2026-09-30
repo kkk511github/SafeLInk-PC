@@ -1728,6 +1728,8 @@ PRIVATE
     settings/sections/settings_global_ttl.cpp
     settings/sections/settings_global_ttl.h
     settings/sections/settings_information.cpp
+    settings/settings_safelink_servers.cpp
+    settings/settings_safelink_servers.h
     settings/sections/settings_information.h
     settings/settings_intro.cpp
     settings/settings_intro.h

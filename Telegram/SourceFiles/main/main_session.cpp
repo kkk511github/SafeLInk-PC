@@ -377,8 +377,7 @@ bool Session::isTestMode() const {
 
 uint64 Session::uniqueId() const {
 	// See also Account::willHaveSessionUniqueId.
-	return userId().bare
-		| (isTestMode() ? 0x0100'0000'0000'0000ULL : 0ULL);
+	return mtp().config().sessionId(userId().bare);
 }
 
 UserId Session::userId() const {

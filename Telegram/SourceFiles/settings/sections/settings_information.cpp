@@ -53,6 +53,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "main/main_domain.h"
 #include "mtproto/mtproto_dc_options.h"
+#include "mtproto/mtproto_config.h"
+#include "settings/settings_safelink_servers.h"
 #include "window/window_session_controller.h"
 #include "window/window_controller.h"
 #include "window/window_peer_menu.h"
@@ -996,6 +998,14 @@ Ui::RpWidget *AccountsList::addAccountButton() const {
 
 void AccountsList::setup() {
 	_addAccount = setupAdd();
+	const auto addServer = _outer->add(CreateButtonWithIcon(
+		_outer,
+		tr::lng_safelink_add_server(),
+		st::mainMenuAddAccountButton,
+		{ &st::settingsIconAdd, IconType::Round, &st::windowBgActive }));
+	addServer->setClickedCallback([=] {
+		ShowAddServerBox(_controller);
+	});
 
 	rpl::single(rpl::empty) | rpl::then(
 		Core::App().domain().accountsChanges()
@@ -1055,13 +1065,21 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
 	using Environment = MTP::Environment;
 	const auto add = [=](Environment environment, bool newWindow = false) {
 		auto &domain = _controller->session().domain();
+		const auto server = MTP::SafeLinkServer::Parse(
+			_controller->session().mtp().config().serverBinding());
+		if (!server) {
+			_controller->show(Ui::MakeInformBox(tr::lng_safelink_server_conflict()));
+			return;
+		}
 		domain.removeRedundantAccounts();
 
 		auto found = false;
 		for (const auto &[index, account] : domain.accounts()) {
 			const auto raw = account.get();
 			if (!raw->sessionExists()
-				&& raw->mtp().environment() == environment) {
+				&& raw->mtp().environment() == environment
+				&& raw->mtp().config().serverId()
+					== _controller->session().mtp().config().serverId()) {
 				found = true;
 			}
 		}
@@ -1069,11 +1087,12 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
 			_controller->show(
 				Box(AccountsLimitBox, &_controller->session()));
 		} else if (newWindow) {
-			domain.addActivated(environment, true);
+			domain.addActivated(environment, true, &*server);
 		} else {
 			_controller->window().preventOrInvoke([=] {
 				Core::App().setActivePrimaryWindow(&_controller->window());
-				_controller->session().domain().addActivated(environment);
+				_controller->session().domain().addActivated(
+					environment, false, &*server);
 			});
 		}
 	};
@@ -1484,6 +1503,32 @@ AccountsEvents SetupAccounts(
 		.closeRequests = list->closeRequests(),
 		.addAccountButton = list->addAccountButton(),
 	};
+}
+
+void SetupServerAccounts(
+		not_null<Ui::VerticalLayout*> container,
+		not_null<Window::SessionController*> controller,
+		const QString &serverId,
+		Fn<void()> close) {
+	auto position = 0;
+	for (const auto account : Core::App().domain().orderedAccounts()) {
+		const auto locked = position++ >= Core::App().domain().maxAccounts();
+		if (!account->sessionExists()
+			|| account->mtp().config().serverId() != serverId) {
+			continue;
+		}
+		container->add(MakeAccountButton(container, controller, account,
+			[=](Qt::KeyboardModifiers modifiers) {
+				crl::on_main(account, [=] {
+					if (modifiers & Qt::ControlModifier) {
+						Core::App().ensureSeparateWindowFor(account);
+					} else {
+						Core::App().domain().maybeActivate(account);
+					}
+				});
+				close();
+			}, locked));
+	}
 }
 
 void UpdatePhotoLocally(not_null<UserData*> user, const QImage &image) {

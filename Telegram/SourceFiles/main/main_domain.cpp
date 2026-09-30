@@ -267,7 +267,9 @@ void Domain::scheduleUpdateUnreadBadge() {
 	}));
 }
 
-not_null<Main::Account*> Domain::add(MTP::Environment environment) {
+not_null<Main::Account*> Domain::add(
+		MTP::Environment environment,
+		const MTP::SafeLinkServer *server) {
 	Expects(started());
 	Expects(_accounts.size() < kPremiumMaxAccounts);
 
@@ -279,18 +281,29 @@ not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 		mainDcId = account->mtp().mainDcId();
 		return cloneConfig(account->mtp().config());
 	};
+	const auto serverId = server
+		? server->id
+		: _active.current()->mtp().config().serverId();
 	auto config = [&] {
-		if (_active.current()->mtp().environment() == environment) {
+		if (_active.current()->mtp().environment() == environment
+			&& _active.current()->mtp().config().serverId() == serverId) {
 			return accountConfig(_active.current());
 		}
 		for (const auto &[index, account] : _accounts) {
-			if (account->mtp().environment() == environment) {
+			if (account->mtp().environment() == environment
+				&& account->mtp().config().serverId() == serverId) {
 				return accountConfig(account.get());
 			}
 		}
-		return (environment == MTP::Environment::Production)
-			? cloneConfig(Core::App().fallbackProductionConfig())
-			: std::make_unique<MTP::Config>(environment);
+		auto result = std::make_unique<MTP::Config>(environment);
+		const auto binding = server ? server->serialize()
+			: _active.current()->mtp().config().serverBinding();
+		result->bindServer(binding.isEmpty()
+			? MTP::SafeLinkServer::Primary().serialize() : binding);
+		if (const auto parsed = MTP::SafeLinkServer::Parse(result->serverBinding())) {
+			mainDcId = parsed->dcId;
+		}
+		return result;
 	}();
 	auto index = 0;
 	while (ranges::contains(_accounts, index, &AccountWithIndex::index)) {
@@ -315,7 +328,29 @@ not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 	return account;
 }
 
-void Domain::addActivated(MTP::Environment environment, bool newWindow) {
+bool Domain::addServerAccount(const MTP::SafeLinkServer &server) {
+	if (!MTP::SafeLinkServer::Parse(server.serialize())) {
+		return false;
+	}
+	for (const auto &[index, account] : _accounts) {
+		if (!account->sessionExists()
+			&& !account->mtp().isTestMode()
+			&& account->mtp().config().serverId() == server.id) {
+			activate(account.get());
+			return true;
+		}
+	}
+	if (_accounts.size() >= maxAccounts()) {
+		return false;
+	}
+	activate(add(MTP::Environment::Production, &server));
+	return true;
+}
+
+void Domain::addActivated(
+		MTP::Environment environment,
+		bool newWindow,
+		const MTP::SafeLinkServer *server) {
 	const auto added = [&](not_null<Main::Account*> account) {
 		if (newWindow) {
 			Core::App().ensureSeparateWindowFor(account);
@@ -327,11 +362,14 @@ void Domain::addActivated(MTP::Environment environment, bool newWindow) {
 		}
 	};
 	if (accounts().size() < maxAccounts()) {
-		added(add(environment));
+		added(add(environment, server));
 	} else {
 		for (auto &[index, account] : accounts()) {
 			if (!account->sessionExists()
-				&& account->mtp().environment() == environment) {
+				&& account->mtp().environment() == environment
+				&& account->mtp().config().serverId()
+					== (server ? server->id
+						: _active.current()->mtp().config().serverId())) {
 				added(account.get());
 				break;
 			}

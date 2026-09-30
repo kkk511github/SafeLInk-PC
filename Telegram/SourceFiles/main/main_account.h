@@ -159,6 +159,7 @@ private:
 
 	UserId _sessionUserId = 0;
 	QByteArray _sessionUserSerialized;
+	QByteArray _serverBinding;
 	int32 _sessionUserStreamVersion = 0;
 	std::unique_ptr<SessionSettings> _storedSessionSettings;
 	MTP::Instance::Fields _mtpFields;

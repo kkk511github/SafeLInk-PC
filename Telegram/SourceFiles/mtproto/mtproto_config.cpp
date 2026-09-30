@@ -44,7 +44,28 @@ Config::Config(Environment environment)
 
 Config::Config(const Config &other)
 : _dcOptions(other.dcOptions())
-, _fields(other._fields) {
+, _fields(other._fields)
+, _serverBinding(other._serverBinding)
+, _serverId(other._serverId) {
+}
+
+bool Config::bindServer(const QByteArray &descriptor) {
+	_serverBinding = descriptor.isEmpty() ? QByteArray("invalid") : descriptor;
+	const auto server = SafeLinkServer::Parse(_serverBinding);
+	_serverId = server ? server->id : u"invalid"_q;
+	return _dcOptions.bindServer(_serverBinding);
+}
+
+const QByteArray &Config::serverBinding() const {
+	return _serverBinding;
+}
+
+QString Config::serverId() const {
+	return _serverId;
+}
+
+uint64 Config::sessionId(uint64 userId) const {
+	return SafeLinkServer::SessionId(serverId(), userId, isTestMode());
 }
 
 QByteArray Config::serialize() const {
@@ -60,7 +81,8 @@ QByteArray Config::serialize() const {
 		+ sizeof(quint64)
 		+ sizeof(qint32)
 		+ Serialize::stringSize(_fields.gifSearchUsername)
-		+ Serialize::stringSize(_fields.venueSearchUsername);
+		+ Serialize::stringSize(_fields.venueSearchUsername)
+		+ Serialize::bytearraySize(_serverBinding);
 
 	auto result = QByteArray();
 	result.reserve(size);
@@ -107,7 +129,8 @@ QByteArray Config::serialize() const {
 			<< quint64(_fields.reactionDefaultCustom)
 			<< qint32(_fields.ratingDecay)
 			<< _fields.gifSearchUsername
-			<< _fields.venueSearchUsername;
+			<< _fields.venueSearchUsername
+			<< _serverBinding;
 	}
 	return result;
 }
@@ -214,6 +237,15 @@ std::unique_ptr<Config> Config::FromSerialized(const QByteArray &serialized) {
 	if (stream.status() != QDataStream::Ok
 		|| !raw->_dcOptions.constructFromSerialized(dcOptionsSerialized)) {
 		return nullptr;
+	}
+	if (!stream.atEnd()) {
+		auto binding = QByteArray();
+		stream >> binding;
+		if (stream.status() != QDataStream::Ok) {
+			raw->bindServer(QByteArray("invalid"));
+		} else if (!binding.isEmpty()) {
+			raw->bindServer(binding);
+		}
 	}
 	return result;
 }

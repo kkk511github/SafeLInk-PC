@@ -70,6 +70,7 @@ public:
 	// construct methods don't notify "changed" subscribers.
 	bool constructFromSerialized(const QByteArray &serialized);
 	void constructFromBuiltIn();
+	bool bindServer(const QByteArray &descriptor);
 	void constructAddOne(
 		int id,
 		Flags flags,
@@ -161,6 +162,9 @@ private:
 
 	// True when we have overriden options from a .tdesktop-endpoints file.
 	bool _immutable = false;
+	bool _serverBound = false;
+	bool _serverValid = true;
+	QString _serverId;
 
 };
 

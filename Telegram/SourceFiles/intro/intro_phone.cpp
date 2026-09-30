@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_phone.h"
+#include "mtproto/mtproto_config.h"
 
 #include "lang/lang_keys.h"
 #include "intro/intro_code.h"
@@ -188,6 +189,8 @@ void PhoneWidget::submit() {
 		const auto raw = existing.get();
 		if (const auto session = raw->maybeSession()) {
 			if (raw->mtp().environment() == account().mtp().environment()
+				&& raw->mtp().config().serverId()
+					== account().mtp().config().serverId()
 				&& DigitsOnly(session->user()->phone()) == phoneDigits) {
 				crl::on_main(raw, [=] {
 					Core::App().domain().activate(raw);

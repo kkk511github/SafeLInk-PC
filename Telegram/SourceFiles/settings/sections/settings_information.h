@@ -38,6 +38,12 @@ AccountsEvents SetupAccounts(
 	not_null<Ui::VerticalLayout*> container,
 	not_null<Window::SessionController*> controller);
 
+void SetupServerAccounts(
+	not_null<Ui::VerticalLayout*> container,
+	not_null<Window::SessionController*> controller,
+	const QString &serverId,
+	Fn<void()> close);
+
 void UpdatePhotoLocally(not_null<UserData*> user, const QImage &image);
 
 namespace Badge {

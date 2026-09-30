@@ -72,15 +72,31 @@ Storage::Domain &Account::domainLocal() const {
 
 std::unique_ptr<MTP::Config> Account::prepareToStart(
 		std::shared_ptr<MTP::AuthKey> localKey) {
-	return _local->start(std::move(localKey));
+	auto config = _local->start(std::move(localKey));
+	if (!_serverBinding.isEmpty()) {
+		if (!config) {
+			config = std::make_unique<MTP::Config>(MTP::Environment::Production);
+		}
+		config->bindServer(_serverBinding);
+	}
+	return config;
 }
 
 void Account::start(std::unique_ptr<MTP::Config> config) {
 	_appConfig = std::make_unique<AppConfig>(this);
-	startMtp(config
-		? std::move(config)
-		: std::make_unique<MTP::Config>(
-			Core::App().fallbackProductionConfig()));
+	if (!config) {
+		config = std::make_unique<MTP::Config>(
+			Core::App().fallbackProductionConfig());
+	}
+	if (!_serverBinding.isEmpty()) {
+		config->bindServer(_serverBinding);
+	} else if (config->serverBinding().isEmpty()) {
+		config->bindServer(MTP::SafeLinkServer::Primary().serialize());
+	}
+	_serverBinding = config->serverBinding();
+	startMtp(std::move(config));
+	local().writeMtpConfig();
+	local().writeMtpData();
 	_appConfig->start();
 	watchProxyChanges();
 	watchSessionChanges();
@@ -127,8 +143,7 @@ uint64 Account::willHaveSessionUniqueId(MTP::Config *config) const {
 	if (!_sessionUserId) {
 		return 0;
 	}
-	return _sessionUserId.bare
-		| (config && config->isTestMode() ? 0x0100'0000'0000'0000ULL : 0ULL);
+	return config ? config->sessionId(_sessionUserId.bare) : _sessionUserId.bare;
 }
 
 void Account::createSession(
@@ -308,6 +323,10 @@ QByteArray Account::serializeMtpAuthorization() const {
 				<< qint32(mainDcId);
 			writeKeys(stream, keys);
 			writeKeys(stream, keysToDestroy);
+			const auto binding = _mtp
+				? _mtp->config().serverBinding() : _serverBinding;
+			stream << (binding.isEmpty()
+				? MTP::SafeLinkServer::Primary().serialize() : binding);
 
 			DEBUG_LOG(("MTP Info: Keys written, userId: %1, dcId: %2"
 				).arg(currentUserId.bare
@@ -406,6 +425,14 @@ void Account::setMtpAuthorization(const QByteArray &serialized) {
 	};
 	readKeys(_mtpFields.keys);
 	readKeys(_mtpKeysToDestroy);
+	_serverBinding = MTP::SafeLinkServer::Primary().serialize();
+	if (!stream.atEnd()) {
+		stream >> _serverBinding;
+		if (stream.status() != QDataStream::Ok
+			|| !MTP::SafeLinkServer::Parse(_serverBinding)) {
+			_serverBinding = QByteArray("invalid");
+		}
+	}
 	LOG(("MTP Info: "
 		"read keys, current: %1, to destroy: %2"
 		).arg(_mtpFields.keys.size()

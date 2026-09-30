@@ -8336,4 +8336,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_sr_languages_column_native" = "Native name";
 "lng_sr_languages_column_name" = "Language name";
 
+"lng_safelink_servers_accounts" = "服务器与账号";
+"lng_safelink_add_server" = "添加服务器";
+"lng_safelink_server_address" = "服务器域名或 IP";
+"lng_safelink_address_error" = "请输入有效的域名、IP 或 HTTPS 地址。";
+"lng_safelink_discovering" = "正在验证服务器…";
+"lng_safelink_discover_server" = "获取服务器配置";
+"lng_safelink_discovery_error" = "无法验证服务器，请检查 HTTPS 证书、网络及服务器公钥配置。";
+"lng_safelink_server_conflict" = "服务器身份或地址与已保存配置冲突，未覆盖现有账号。";
+"lng_safelink_server_save_error" = "无法保存或读取服务器列表，请检查配置文件、写入权限及服务器数量（最多 32 台）。";
+"lng_safelink_trust_server" = "确认信任此服务器及其公钥？";
+"lng_safelink_confirm_server" = "确认添加";
+"lng_safelink_current_server" = " · 当前服务器";
+
 // Keys finished

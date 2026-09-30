@@ -417,7 +417,9 @@ void Widget::historyMove(StackAction action, Animate animate) {
 	if (action == StackAction::Back || action == StackAction::Replace) {
 		delete base::take(wasStep);
 	}
-	_back->toggle(getStep()->hasBack(), anim::type::normal);
+	_back->toggle(getStep()->hasBack()
+		|| Core::App().domain().maybeLastOrSomeAuthedAccount(),
+		anim::type::normal);
 
 	auto stepHasCover = getStep()->hasCover();
 	_settings->toggle(!stepHasCover, anim::type::normal);
@@ -725,7 +727,9 @@ void Widget::showControls() {
 	if (_terms) {
 		_terms->show(anim::type::instant);
 	}
-	_back->toggle(getStep()->hasBack(), anim::type::instant);
+	_back->toggle(getStep()->hasBack()
+		|| Core::App().domain().maybeLastOrSomeAuthedAccount(),
+		anim::type::instant);
 }
 
 void Widget::setupNextButton() {
@@ -878,7 +882,8 @@ void Widget::keyPressEvent(QKeyEvent *e) {
 	if (_showAnimation || getStep()->animating()) return;
 
 	if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Back) {
-		if (getStep()->hasBack()) {
+		if (getStep()->hasBack()
+			|| Core::App().domain().maybeLastOrSomeAuthedAccount()) {
 			backRequested();
 		}
 	} else if (e->key() == Qt::Key_Enter

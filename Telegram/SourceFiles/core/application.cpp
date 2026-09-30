@@ -813,7 +813,8 @@ MTP::Config &Application::fallbackProductionConfig() const {
 
 void Application::refreshFallbackProductionConfig(
 		const MTP::Config &config) {
-	if (config.environment() == MTP::Environment::Production) {
+	if (config.environment() == MTP::Environment::Production
+		&& config.serverId() == MTP::SafeLinkServer::Primary().id) {
 		_fallbackProductionConfig = std::make_unique<MTP::Config>(config);
 	}
 }
@@ -821,7 +822,8 @@ void Application::refreshFallbackProductionConfig(
 void Application::constructFallbackProductionConfig(
 		const QByteArray &serialized) {
 	if (auto config = MTP::Config::FromSerialized(serialized)) {
-		if (config->environment() == MTP::Environment::Production) {
+		if (config->environment() == MTP::Environment::Production
+			&& config->serverId() == MTP::SafeLinkServer::Primary().id) {
 			_fallbackProductionConfig = std::move(config);
 		}
 	}

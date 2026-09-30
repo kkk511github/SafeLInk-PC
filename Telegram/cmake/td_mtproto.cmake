@@ -50,6 +50,8 @@ PRIVATE
     mtproto/mtproto_proxy_data.h
     mtproto/mtproto_response.cpp
     mtproto/mtproto_response.h
+    mtproto/safelink_server.cpp
+    mtproto/safelink_server.h
 )
 
 target_include_directories(td_mtproto

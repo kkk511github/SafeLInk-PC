@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_main.h"
 
 #include "settings/settings_common_session.h"
+#include "settings/settings_safelink_servers.h"
 
 #include "api/api_cloud_password.h"
 #include "api/api_credits.h"
@@ -366,28 +367,10 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto showOther = builder.showOther();
 
 	builder.addButton({
-		.title = rpl::single(u"服务器与账号"_q),
+		.title = tr::lng_safelink_servers_accounts(),
 		.icon = { &st::menuIconProfile },
 		.onClick = [=] {
-			controller->show(Box([=](not_null<Ui::GenericBox*> box) {
-				box->setTitle(rpl::single(u"服务器与账号"_q));
-				box->setWidth(st::boxWideWidth);
-				const auto layout = box->verticalLayout();
-				const auto endpoints = session->account().mtp().config().dcOptions().lookup(
-					session->account().mtp().mainDcId(), MTP::DcType::Regular, false);
-				const auto &addresses = endpoints.data[MTP::DcOptions::Variants::IPv4][MTP::DcOptions::Variants::Tcp];
-				const auto address = addresses.empty()
-					? u"暂无可用地址"_q
-					: QString::fromStdString(addresses.front().ip) + ':' + QString::number(addresses.front().port);
-				Ui::AddSubsectionTitle(layout, rpl::single(u"SafeLink · 当前服务器"_q));
-				layout->add(object_ptr<Ui::FlatLabel>(layout,
-					rpl::single(u"服务器信息\n"_q + address), st::boxLabel), st::boxPadding);
-				auto events = SetupAccounts(layout, controller);
-				std::move(events.closeRequests) | rpl::on_next([=] {
-					box->closeBox();
-				}, box->lifetime());
-				box->addButton(tr::lng_close(), [=] { box->closeBox(); });
-			}));
+			ShowServersBox(controller);
 		},
 		.keywords = { u"server"_q, u"accounts"_q },
 	});
@@ -686,10 +669,19 @@ void Main::fillTopBarMenu(const Ui::Menu::MenuCallback &addAction) {
 	const auto &list = Core::App().domain().accounts();
 	if (list.size() < Core::App().domain().maxAccounts()) {
 		addAction(tr::lng_menu_add_account(tr::now), [=] {
+			const auto server = MTP::SafeLinkServer::Parse(
+				controller()->session().mtp().config().serverBinding());
+			if (!server) {
+				controller()->show(Ui::MakeInformBox(tr::lng_safelink_server_conflict()));
+				return;
+			}
 			Core::App().setActivePrimaryWindow(&controller()->window());
-			Core::App().domain().addActivated(MTP::Environment{});
+			Core::App().domain().addActivated(MTP::Environment{}, false, &*server);
 		}, &st::menuIconAddAccount);
 	}
+	addAction(tr::lng_safelink_add_server(tr::now), [=] {
+		ShowAddServerBox(controller());
+	}, &st::menuIconAddAccount);
 	if (!controller()->session().supportMode()) {
 		addAction(
 			tr::lng_settings_information(tr::now),

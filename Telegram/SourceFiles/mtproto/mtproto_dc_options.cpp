@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/facade.h"
 #include "mtproto/connection_tcp.h"
 #include "storage/serialize_common.h"
+#include "mtproto/safelink_server.h"
 
 #include <QtCore/QFile>
 #include <QtCore/QRegularExpression>
@@ -113,7 +114,10 @@ DcOptions::DcOptions(const DcOptions &other)
 , _cdnDcIds(other._cdnDcIds)
 , _publicKeys(other._publicKeys)
 , _cdnPublicKeys(other._cdnPublicKeys)
-, _immutable(other._immutable) {
+, _immutable(other._immutable)
+, _serverBound(other._serverBound)
+, _serverValid(other._serverValid)
+, _serverId(other._serverId) {
 }
 
 DcOptions::~DcOptions() = default;
@@ -152,7 +156,11 @@ bool DcOptions::isTestMode() const {
 
 void DcOptions::constructFromBuiltIn() {
 	WriteLocker lock(this);
+	if (_serverBound) {
+		return;
+	}
 	_data.clear();
+	_publicKeys.clear();
 
 	readBuiltInPublicKeys();
 
@@ -185,7 +193,7 @@ void DcOptions::constructFromBuiltIn() {
 void DcOptions::processFromList(
 		const QVector<MTPDcOption> &options,
 		bool overwrite) {
-	if (options.empty() || _immutable) {
+	if (options.empty() || _immutable || !_serverValid) {
 		return;
 	}
 
@@ -235,7 +243,9 @@ void DcOptions::addFromList(const MTPVector<MTPDcOption> &options) {
 }
 
 void DcOptions::addFromOther(DcOptions &&options) {
-	if (this == &options || _immutable) {
+	if (this == &options || _immutable || !_serverValid
+		|| _serverBound != options._serverBound
+		|| _serverId != options._serverId) {
 		return;
 	}
 
@@ -462,6 +472,37 @@ QByteArray DcOptions::serialize() const {
 	return result;
 }
 
+bool DcOptions::bindServer(const QByteArray &descriptor) {
+	WriteLocker lock(this);
+	_immutable = false;
+	_serverBound = true;
+	_serverValid = false;
+	_serverId.clear();
+	_data.clear();
+	_publicKeys.clear();
+	_cdnPublicKeys.clear();
+	_cdnDcIds.clear();
+	const auto server = SafeLinkServer::Parse(descriptor);
+	if (!server) {
+		return false;
+	}
+	const auto pem = server->publicKey.toUtf8();
+	auto key = RSAPublicKey(bytes::make_span(pem));
+	if (!key.valid()) {
+		return false;
+	}
+	_publicKeys.emplace(key.fingerprint(), std::move(key));
+	auto flags = Flag::f_static | Flag::f_tcpo_only;
+	if (server->host.contains(':')) {
+		flags |= Flag::f_ipv6;
+	}
+	applyOneGuarded(server->dcId, flags,
+		server->host.toStdString(), server->port, {});
+	_serverId = server->id;
+	_serverValid = true;
+	return true;
+}
+
 bool DcOptions::constructFromSerialized(const QByteArray &serialized) {
 	Q_UNUSED(serialized);
 	constructFromBuiltIn();
@@ -644,6 +685,9 @@ void DcOptions::computeCdnDcIds() {
 }
 
 bool DcOptions::loadFromFile(const QString &path) {
+	if (_serverBound) {
+		return false;
+	}
 	QVector<MTPDcOption> options;
 
 	QFile f(path);

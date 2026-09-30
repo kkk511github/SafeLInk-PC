@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "mtproto/mtproto_dc_options.h"
+#include "mtproto/safelink_server.h"
 
 namespace MTP {
 
@@ -55,6 +56,10 @@ class Config final {
 public:
 	explicit Config(Environment environment);
 	Config(const Config &other);
+	bool bindServer(const QByteArray &descriptor);
+	[[nodiscard]] const QByteArray &serverBinding() const;
+	[[nodiscard]] QString serverId() const;
+	[[nodiscard]] uint64 sessionId(uint64 userId) const;
 
 	[[nodiscard]] QByteArray serialize() const;
 	[[nodiscard]] static std::unique_ptr<Config> FromSerialized(
@@ -87,6 +92,8 @@ public:
 private:
 	DcOptions _dcOptions;
 	ConfigFields _fields;
+	QByteArray _serverBinding;
+	QString _serverId = SafeLinkServer::Primary().id;
 
 	rpl::event_stream<> _updates;
 
