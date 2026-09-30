@@ -43,6 +43,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_domain.h"
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
+#include "mtproto/mtproto_config.h"
+#include "mtproto/mtproto_dc_options.h"
 #include "settings/settings_builder.h"
 #include "settings/cloud_password/settings_cloud_password_input.h"
 #include "settings/sections/settings_advanced.h"
@@ -362,6 +364,33 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto session = builder.session();
 	const auto controller = builder.controller();
 	const auto showOther = builder.showOther();
+
+	builder.addButton({
+		.title = rpl::single(u"服务器与账号"_q),
+		.icon = { &st::menuIconProfile },
+		.onClick = [=] {
+			controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+				box->setTitle(rpl::single(u"服务器与账号"_q));
+				box->setWidth(st::boxWideWidth);
+				const auto layout = box->verticalLayout();
+				const auto endpoints = session->account().mtp().config().dcOptions().lookup(
+					session->account().mtp().mainDcId(), MTP::DcType::Regular, false);
+				const auto &addresses = endpoints.data[MTP::DcOptions::Variants::IPv4][MTP::DcOptions::Variants::Tcp];
+				const auto address = addresses.empty()
+					? u"暂无可用地址"_q
+					: QString::fromStdString(addresses.front().ip) + ':' + QString::number(addresses.front().port);
+				Ui::AddSubsectionTitle(layout, rpl::single(u"SafeLink · 当前服务器"_q));
+				layout->add(object_ptr<Ui::FlatLabel>(layout,
+					rpl::single(u"服务器信息\n"_q + address), st::boxLabel), st::boxPadding);
+				auto events = SetupAccounts(layout, controller);
+				std::move(events.closeRequests) | rpl::on_next([=] {
+					box->closeBox();
+				}, box->lifetime());
+				box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+			}));
+		},
+		.keywords = { u"server"_q, u"accounts"_q },
+	});
 
 	if (!session->supportMode()) {
 		builder.addSectionButton({

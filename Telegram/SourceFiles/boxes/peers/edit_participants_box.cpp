@@ -1420,22 +1420,32 @@ rpl::producer<int> ParticipantsBoxController::fullCountValue() const {
 	return _fullCountValue.value();
 }
 
-bool ParticipantsBoxController::blocksPrivateChat(
-		not_null<UserData*> user) const {
+void ParticipantsBoxController::checkPrivateChat(
+		not_null<PeerData*> participant,
+		Fn<void()> allowed) {
 	const auto channel = _peer->asMegagroup();
-	return channel
-		&& channel->session().api().safeLinkPrivateChat().blocksPrivateChat(
-			channel,
-			user);
-}
-
-void ParticipantsBoxController::showPrivateChatForbiddenToast() const {
-	const auto text = u"此群已禁止与普通成员私聊"_q;
-	if (_navigation) {
-		_navigation->showToast(text);
-	} else if (const auto show = delegate()->peerListUiShow()) {
-		show->showToast(text);
+	const auto user = participant->asUser();
+	if (!channel || !user) {
+		allowed();
+		return;
 	}
+	channel->session().api().safeLinkPrivateChat().checkCanOpen(
+		channel,
+		user,
+		crl::guard(this, [=](std::optional<bool> result) {
+			if (result == true) {
+				allowed();
+				return;
+			}
+			const auto text = result.has_value()
+				? u"此群已禁止与普通成员私聊"_q
+				: u"暂时无法确认群聊权限，请稍后重试"_q;
+			if (_navigation) {
+				_navigation->showGroupPrivateChatDenied(!result.has_value());
+			} else if (const auto show = delegate()->peerListUiShow()) {
+				show->showToast(text);
+			}
+		}));
 }
 
 void ParticipantsBoxController::setStoriesShown(bool shown) {
@@ -1867,14 +1877,14 @@ bool ParticipantsBoxController::feedMegagroupLastParticipants() {
 
 void ParticipantsBoxController::rowClicked(not_null<PeerListRow*> row) {
 	const auto participant = row->peer();
+	checkPrivateChat(participant, [=] { openParticipant(participant); });
+}
+
+void ParticipantsBoxController::openParticipant(
+		not_null<PeerData*> participant) {
 	const auto user = participant->asUser();
 
 	if (_stories && _stories->handleClick(participant)) {
-		return;
-	}
-
-	if (user && blocksPrivateChat(user)) {
-		showPrivateChatForbiddenToast();
 		return;
 	}
 
@@ -2014,12 +2024,10 @@ base::unique_qptr<Ui::PopupMenu> ParticipantsBoxController::rowContextMenu(
 				? tr::lng_context_view_channel
 				: tr::lng_context_view_group)(tr::now),
 			crl::guard(this, [=, this] {
-				if (user && blocksPrivateChat(user)) {
-					showPrivateChatForbiddenToast();
-					return;
-				}
-				_navigation->parentController()->show(
-					PrepareShortInfoBox(participant, _navigation));
+				checkPrivateChat(participant, [=] {
+					_navigation->parentController()->show(
+						PrepareShortInfoBox(participant, _navigation));
+				});
 			}),
 			(participant->isUser()
 				? &st::menuIconProfile

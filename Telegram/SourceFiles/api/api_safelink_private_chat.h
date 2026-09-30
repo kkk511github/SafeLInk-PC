@@ -22,6 +22,10 @@ public:
 
 	void load(not_null<ChannelData*> channel);
 	void reload(not_null<ChannelData*> channel);
+	void checkCanOpen(
+		not_null<ChannelData*> channel,
+		not_null<UserData*> user,
+		Fn<void(std::optional<bool>)> done);
 	void setForbidden(
 		not_null<ChannelData*> channel,
 		bool forbidden,

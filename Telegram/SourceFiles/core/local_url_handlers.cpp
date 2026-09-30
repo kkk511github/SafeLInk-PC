@@ -1908,6 +1908,9 @@ QString TryConvertUrlToLocal(QString url) {
 	if (url.size() > 8192) {
 		url = url.mid(0, 8192);
 	}
+	if (url.startsWith(u"safelink://"_q, Qt::CaseInsensitive)) {
+		return u"tg://"_q + url.mid(QStringView(u"safelink://").size());
+	}
 
 	using namespace qthelp;
 	auto matchOptions = RegExOption::CaseInsensitive;

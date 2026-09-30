@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "apiwrap.h"
 #include "api/api_cloud_password.h"
+#include "api/api_safelink_private_chat.h"
 #include "api/api_text_entities.h"
 #include "boxes/peers/add_bot_to_chat_box.h"
 #include "boxes/peers/edit_peer_info_box.h"
@@ -86,8 +87,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/effects/message_sending_animation_controller.h"
+#include "ui/effects/shake_animation.h"
 #include "ui/style/style_palette_colorizer.h"
 #include "ui/toast/toast.h"
+#include "ui/toast/toast_widget.h"
+#include "styles/style_basic.h"
 #include "calls/calls_instance.h" // Core::App().calls().inCall().
 #include "calls/group/calls_group_call.h"
 #include "calls/group/calls_group_common.h"
@@ -619,6 +623,17 @@ void SessionNavigation::showMessageByLinkResolved(
 }
 
 void SessionNavigation::showPeerByLinkResolved(
+		not_null<PeerData*> peer,
+		const PeerByLinkInfo &info) {
+	const auto source = info.clickFromMessageId.peer
+		? _session->data().peer(info.clickFromMessageId.peer).get()
+		: nullptr;
+	checkGroupPrivateChat(source, peer, [=] {
+		showPeerByLinkAllowed(peer, info);
+	});
+}
+
+void SessionNavigation::showPeerByLinkAllowed(
 		not_null<PeerData*> peer,
 		const PeerByLinkInfo &info) {
 	auto params = SectionShow{
@@ -1339,6 +1354,41 @@ void SessionNavigation::showRepliesForMessage(
 			showToast(tr::lng_message_not_found(tr::now));
 		}
 	}).send();
+}
+
+void SessionNavigation::checkGroupPrivateChat(
+		PeerData *source,
+		not_null<PeerData*> target,
+		Fn<void()> allowed) {
+	const auto channel = source ? source->asMegagroup() : nullptr;
+	const auto user = target->asUser();
+	if (!channel || !user) {
+		allowed();
+		return;
+	}
+	_session->api().safeLinkPrivateChat().checkCanOpen(
+		channel,
+		user,
+		crl::guard(this, [=](std::optional<bool> result) {
+			if (result == true) {
+				allowed();
+			} else {
+				showGroupPrivateChatDenied(!result.has_value());
+			}
+		}));
+}
+
+void SessionNavigation::showGroupPrivateChatDenied(bool unavailable) {
+	const auto toast = showToast(unavailable
+		? u"暂时无法确认群聊权限，请稍后重试"_q
+		: u"此群已禁止与普通成员私聊"_q);
+	if (const auto strong = toast.get()) {
+		const auto widget = strong->widget();
+		const auto animation = widget->lifetime().make_state<Ui::Animations::Simple>();
+		animation->start(Ui::DefaultShakeCallback([=, x = widget->x()](int shift) {
+			widget->move(x + shift, widget->y());
+		}), 0., 1., st::shakeDuration);
+	}
 }
 
 void SessionNavigation::showPeerInfo(

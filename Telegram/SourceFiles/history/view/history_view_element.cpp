@@ -2197,6 +2197,7 @@ ClickHandlerPtr Element::fromLink() const {
 	}
 	const auto item = data();
 	if (const auto from = item->displayFrom()) {
+		const auto source = item->history()->peer;
 		_fromLink = std::make_shared<LambdaClickHandler>([=](
 				ClickContext context) {
 			if (context.button != Qt::LeftButton) {
@@ -2205,7 +2206,9 @@ ClickHandlerPtr Element::fromLink() const {
 			const auto my = context.other.value<ClickHandlerContext>();
 			const auto session = &from->session();
 			if (const auto window = ContextOrSessionWindow(my, session)) {
-				window->showPeerInfo(from);
+				window->checkGroupPrivateChat(source, from, [=] {
+					window->showPeerInfo(from);
+				});
 			}
 		});
 		_fromLink->setProperty(kPeerLinkPeerIdProperty, from->id.value);

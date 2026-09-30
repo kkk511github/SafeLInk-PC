@@ -297,7 +297,13 @@ void PeerClickHandler::onClick(ClickContext context) const {
 		return windows.front();
 	}();
 	if (window) {
-		window->showPeer(_peer);
+		const auto peer = _peer;
+		const auto source = my.itemId.peer
+			? peer->owner().peer(my.itemId.peer).get()
+			: my.peer;
+		window->checkGroupPrivateChat(source, peer, [=] {
+			window->showPeer(peer);
+		});
 	}
 }
 

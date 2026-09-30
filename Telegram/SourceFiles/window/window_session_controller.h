@@ -260,6 +260,12 @@ public:
 		MsgId itemId = 0,
 		const SectionShow &params = SectionShow());
 
+	void checkGroupPrivateChat(
+		PeerData *source,
+		not_null<PeerData*> target,
+		Fn<void()> allowed);
+	void showGroupPrivateChatDenied(bool unavailable);
+
 	void showPeerInfo(
 		PeerId peerId,
 		const SectionShow &params = SectionShow());
@@ -367,6 +373,9 @@ private:
 		not_null<HistoryItem*> item,
 		const PeerByLinkInfo &info);
 	void showPeerByLinkResolved(
+		not_null<PeerData*> peer,
+		const PeerByLinkInfo &info);
+	void showPeerByLinkAllowed(
 		not_null<PeerData*> peer,
 		const PeerByLinkInfo &info);
 	void joinVoiceChatFromLink(

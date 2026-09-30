@@ -1181,7 +1181,7 @@ void Application::checkStartUrls() {
 }
 
 bool Application::openLocalUrl(const QString &url, QVariant context) {
-	const auto urlTrimmed = url.trimmed();
+	const auto urlTrimmed = TryConvertUrlToLocal(url.trimmed());
 	const auto protocol = u"tg://"_q;
 	if (urlTrimmed.startsWith(protocol, Qt::CaseInsensitive)
 		&& !passcodeLocked()) {
@@ -1196,7 +1196,7 @@ bool Application::openLocalUrl(const QString &url, QVariant context) {
 			return true;
 		}
 	}
-	return openCustomUrl("tg://", LocalUrlHandlers(), url, context);
+	return openCustomUrl("tg://", LocalUrlHandlers(), urlTrimmed, context);
 }
 
 bool Application::openInternalUrl(const QString &url, QVariant context) {
@@ -1919,6 +1919,17 @@ void Application::RegisterUrlScheme() {
 	const auto arguments = Launcher::Instance().customWorkingDir()
 		? u"-workdir \"%1\""_q.arg(cWorkingDir())
 		: QString();
+
+	base::Platform::RegisterUrlScheme(base::Platform::UrlSchemeDescriptor{
+		.executable = Platform::ExecutablePathForShortcuts(),
+		.arguments = arguments,
+		.protocol = u"safelink"_q,
+		.protocolName = u"SafeLink Link"_q,
+		.shortAppName = u"tdesktop"_q,
+		.longAppName = QCoreApplication::applicationName(),
+		.displayAppName = AppName.utf16(),
+		.displayAppDescription = AppName.utf16(),
+	});
 
 	base::Platform::RegisterUrlScheme(base::Platform::UrlSchemeDescriptor{
 		.executable = Platform::ExecutablePathForShortcuts(),

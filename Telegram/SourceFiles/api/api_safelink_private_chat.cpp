@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_safelink_private_chat.h"
 
 #include "apiwrap.h"
+#include "base/call_delayed.h"
 #include "data/data_channel.h"
 #include "data/data_user.h"
 #include "main/main_session.h"
@@ -45,10 +46,54 @@ void SafeLinkPrivateChat::request(
 		apply(channel, mtpIsTrue(result));
 	}).fail([=] {
 		_loadRequests.remove(channel);
-		apply(channel, false);
 	}).send();
 
 	_loadRequests.emplace(channel, requestId);
+}
+
+void SafeLinkPrivateChat::checkCanOpen(
+		not_null<ChannelData*> channel,
+		not_null<UserData*> user,
+		Fn<void(std::optional<bool>)> done) {
+	if (user->isSelf() || currentUserCanBypass(channel)) {
+		done(true);
+		return;
+	}
+	// Cache misses and transport errors are not permission to open a profile.
+	const auto completed = std::make_shared<bool>(false);
+	const auto finish = [=](std::optional<bool> allowed) {
+		if (!std::exchange(*completed, true)) {
+			done(allowed);
+		}
+	};
+	base::call_delayed(8000, &channel->session(), [=] {
+		finish(std::nullopt);
+	});
+	_api.request(MTPsafelink_GetGroupPrivateChatForbidden(
+		channel->inputChannel()
+	)).done([=](const MTPBool &result) {
+		if (*completed) {
+			return;
+		}
+		const auto blocked = mtpIsTrue(result);
+		apply(channel, blocked);
+		if (!blocked || currentUserCanBypass(channel)) {
+			finish(true);
+			return;
+		}
+		_api.request(MTPchannels_GetParticipant(
+			channel->inputChannel(),
+			user->input()
+		)).done([=](const MTPchannels_ChannelParticipant &result) {
+			const auto type = result.data().vparticipant().type();
+			finish(type == mtpc_channelParticipantCreator
+				|| type == mtpc_channelParticipantAdmin);
+		}).fail([=] {
+			finish(std::nullopt);
+		}).send();
+	}).fail([=] {
+		finish(std::nullopt);
+	}).send();
 }
 
 void SafeLinkPrivateChat::setForbidden(
