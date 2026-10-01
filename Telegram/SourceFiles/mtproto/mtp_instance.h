@@ -101,7 +101,7 @@ public:
 	void killSession(ShiftedDcId shiftedDcId);
 	void stopSession(ShiftedDcId shiftedDcId);
 	void reInitConnection(DcId dcId);
-	void logout(Fn<void()> done);
+	void logout(Fn<void()> done, Fn<void(QByteArray)> rememberToken = {});
 
 	void setUpdatesHandler(Fn<void(const Response&)> handler);
 	void setGlobalFailHandler(

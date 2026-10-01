@@ -163,6 +163,10 @@ void Step::finish(const MTPauth_Authorization &auth, QImage &&photo) {
 			showError(rpl::single(Lang::Hard::ServerError())); // wtf?
 			return;
 		}
+		if (const auto token = data.vfuture_auth_token()) {
+			Core::App().settings().rememberFutureAuthToken(
+				account().mtp().config().serverId(), qba(*token));
+		}
 		finish(data.vuser(), std::move(photo));
 	}, [&](const MTPDauth_authorizationSignUpRequired &data) {
 		if (const auto terms = data.vterms_of_service()) {

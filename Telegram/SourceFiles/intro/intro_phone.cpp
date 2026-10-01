@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_phone.h"
+#include "intro/intro_password_check.h"
+#include "core/core_settings.h"
 #include "mtproto/mtproto_config.h"
 
 #include "lang/lang_keys.h"
@@ -206,13 +208,22 @@ void PhoneWidget::submit() {
 
 	_sentPhone = phone;
 	api().instance().setUserPhone(_sentPhone);
+	auto tokens = QVector<MTPbytes>();
+	for (const auto &token : Core::App().settings().futureAuthTokens(
+			account().mtp().config().serverId())) {
+		tokens.push_back(MTP_bytes(token));
+	}
+	auto settingsFlags = MTPDcodeSettings::Flags();
+	if (!tokens.empty()) {
+		settingsFlags |= MTPDcodeSettings::Flag::f_logout_tokens;
+	}
 	_sentRequest = api().request(MTPauth_SendCode(
 		MTP_string(_sentPhone),
 		MTP_int(ApiId),
 		MTP_string(ApiHash),
 		MTP_codeSettings(
-			MTP_flags(0),
-			MTPVector<MTPbytes>(),
+			MTP_flags(settingsFlags),
+			MTP_vector<MTPbytes>(tokens),
 			MTPstring(),
 			MTPBool())
 	)).done([=](const MTPauth_SentCode &result) {
@@ -278,7 +289,23 @@ void PhoneWidget::phoneSubmitFail(const MTP::Error &error) {
 	stopCheck();
 	_sentRequest = 0;
 	auto &err = error.type();
-	if (err == u"PHONE_NUMBER_FLOOD"_q) {
+	if (err == u"SESSION_PASSWORD_NEEDED"_q) {
+		getData()->phone = DigitsOnly(_sentPhone);
+		getData()->phoneHash.clear();
+		_sentRequest = api().request(MTPaccount_GetPassword()).done([=](const MTPaccount_Password &result) {
+			_sentRequest = 0;
+			const auto &data = result.c_account_password();
+			getData()->pwdState = Core::ParseCloudPasswordState(data);
+			if (!data.vcurrent_algo() || !data.vsrp_id() || !data.vsrp_B() || !getData()->pwdState.hasPassword) {
+				showPhoneError(tr::lng_safelink_login_password_unavailable());
+				return;
+			}
+			goNext<PasswordCheckWidget>();
+		}).fail([=](const MTP::Error &error) {
+			_sentRequest = 0;
+			showPhoneError(rpl::single(error.type()));
+		}).handleFloodErrors().send();
+	} else if (err == u"PHONE_NUMBER_FLOOD"_q) {
 		Ui::show(Ui::MakeInformBox(tr::lng_error_phone_flood()));
 	} else if (err == u"PHONE_NUMBER_INVALID"_q) { // show error
 		showPhoneError(tr::lng_bad_phone());

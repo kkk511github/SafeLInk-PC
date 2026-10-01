@@ -32,8 +32,9 @@ SignupWidget::SignupWidget(
 	data->controller,
 	Ui::UserpicButton::Role::ChoosePhoto,
 	st::defaultUserpicButton)
-, _first(this, st::introName, tr::lng_signup_firstname())
-, _last(this, st::introName, tr::lng_signup_lastname())
+, _first(this, st::introSignupName, tr::lng_signup_firstname())
+, _last(this, st::introSignupName, tr::lng_signup_lastname())
+, _invite(this, st::introName, tr::lng_safelink_registration_invite())
 , _invertOrder(langFirstNameGoesSecond()) {
 	_photo->showCustomOnChosen();
 
@@ -49,6 +50,7 @@ SignupWidget::SignupWidget(
 	}
 
 	setErrorCentered(true);
+	setTabOrder(_invertOrder ? _first : _last, _invite);
 
 	setTitleText(tr::lng_signup_title());
 	setDescriptionText(tr::lng_signup_desc());
@@ -81,12 +83,14 @@ void SignupWidget::updateControlsGeometry() {
 
 	auto firstTop = contentTop() + st::introStepFieldTop;
 	auto secondTop = firstTop + st::introName.heightMin + st::introPhoneTop;
+	_invite->moveToLeft(contentLeft(), secondTop);
+	const auto secondLeft = contentLeft() + st::introSignupName.width + st::introSignupNameGap;
 	if (_invertOrder) {
 		_last->moveToLeft(contentLeft(), firstTop);
-		_first->moveToLeft(contentLeft(), secondTop);
+		_first->moveToLeft(secondLeft, firstTop);
 	} else {
 		_first->moveToLeft(contentLeft(), firstTop);
-		_last->moveToLeft(contentLeft(), secondTop);
+		_last->moveToLeft(secondLeft, firstTop);
 	}
 }
 
@@ -102,6 +106,7 @@ void SignupWidget::activate() {
 	Step::activate();
 	_first->show();
 	_last->show();
+	_invite->show();
 	_photo->show();
 	setInnerFocus();
 }
@@ -115,6 +120,7 @@ void SignupWidget::nameSubmitDone(const MTPauth_Authorization &result) {
 }
 
 void SignupWidget::nameSubmitFail(const MTP::Error &error) {
+	_sentRequest = 0;
 	if (MTP::IsFloodError(error)) {
 		showError(tr::lng_flood_error());
 		if (_invertOrder) {
@@ -126,7 +132,11 @@ void SignupWidget::nameSubmitFail(const MTP::Error &error) {
 	}
 
 	auto &err = error.type();
-	if (err == u"PHONE_NUMBER_FLOOD"_q) {
+	if (err == u"INVITE_CODE_REQUIRED"_q || err == u"INVITE_CODE_INVALID"_q) {
+		showError(err == u"INVITE_CODE_REQUIRED"_q ? tr::lng_safelink_registration_invite_required() : tr::lng_safelink_registration_invite_invalid());
+		_invite->showError();
+		_invite->setFocus();
+	} else if (err == u"PHONE_NUMBER_FLOOD"_q) {
 		Ui::show(Ui::MakeInformBox(tr::lng_error_phone_flood()));
 	} else if (err == u"PHONE_NUMBER_INVALID"_q
 		|| err == u"PHONE_NUMBER_BANNED"_q
@@ -178,10 +188,13 @@ void SignupWidget::submit() {
 
 		_firstName = _first->getLastText().trimmed();
 		_lastName = _last->getLastText().trimmed();
+		auto hash = getData()->phoneHash;
+		const auto invite = _invite->getLastText().trimmed();
+		if (!invite.isEmpty()) { hash += ":safelink-invite:" + invite.toUtf8(); }
 		_sentRequest = api().request(MTPauth_SignUp(
 			MTP_flags(0),
 			MTP_string(getData()->phone),
-			MTP_bytes(getData()->phoneHash),
+			MTP_bytes(hash),
 			MTP_string(_firstName),
 			MTP_string(_lastName)
 		)).done([=](const MTPauth_Authorization &result) {

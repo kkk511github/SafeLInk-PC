@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "main/main_account.h"
+#include "core/core_settings.h"
+#include "mtproto/mtproto_config.h"
 
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
@@ -549,7 +551,10 @@ void Account::logOut() {
 	}
 	_loggingOut = true;
 	if (_mtp) {
-		_mtp->logout([=] { loggedOut(); });
+		const auto serverId = _mtp->config().serverId();
+		_mtp->logout([=] { loggedOut(); }, [=](QByteArray token) {
+			Core::App().settings().rememberFutureAuthToken(serverId, token);
+		});
 	} else {
 		// We log out because we've forgotten passcode.
 		loggedOut();

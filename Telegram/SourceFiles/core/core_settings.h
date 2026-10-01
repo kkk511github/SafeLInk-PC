@@ -1047,6 +1047,8 @@ public:
 	}
 
 	void resetOnLastLogout();
+	[[nodiscard]] std::vector<QByteArray> futureAuthTokens(const QString &serverId);
+	void rememberFutureAuthToken(const QString &serverId, const QByteArray &token);
 
 private:
 	void resolveRecentEmoji() const;
@@ -1216,4 +1218,3 @@ private:
 };
 
 } // namespace Core
-

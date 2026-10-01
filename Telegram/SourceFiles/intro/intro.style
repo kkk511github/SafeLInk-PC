@@ -114,6 +114,10 @@ introPhone: InputField(introCountry) {
 }
 introQrLoginLinkTop: 368px;
 introName: introCountry;
+introSignupName: InputField(introName) {
+	width: 144px;
+}
+introSignupNameGap: 12px;
 introPassword: introCountry;
 introPasswordTop: 74px;
 introPasswordHintTop: 151px;

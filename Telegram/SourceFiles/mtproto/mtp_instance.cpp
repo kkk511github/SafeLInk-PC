@@ -112,7 +112,7 @@ public:
 	void killSession(ShiftedDcId shiftedDcId);
 	void stopSession(ShiftedDcId shiftedDcId);
 	void reInitConnection(DcId dcId);
-	void logout(Fn<void()> done);
+	void logout(Fn<void()> done, Fn<void(QByteArray)> rememberToken);
 
 	not_null<Dcenter*> getDcById(ShiftedDcId shiftedDcId);
 	Dcenter *findDc(ShiftedDcId shiftedDcId);
@@ -717,8 +717,15 @@ void Instance::Private::reInitConnection(DcId dcId) {
 	}
 }
 
-void Instance::Private::logout(Fn<void()> done) {
-	_instance->send(MTPauth_LogOut(), [=](Response) {
+void Instance::Private::logout(Fn<void()> done, Fn<void(QByteArray)> rememberToken) {
+	_instance->send(MTPauth_LogOut(), [=](const Response &response) {
+		auto result = MTPauth_LoggedOut();
+		auto from = response.reply.constData();
+		if (rememberToken && result.read(from, from + response.reply.size())) {
+			if (const auto token = result.c_auth_loggedOut().vfuture_auth_token()) {
+				rememberToken(qba(*token));
+			}
+		}
 		done();
 		return true;
 	}, [=](const Error&, Response) {
@@ -1980,8 +1987,8 @@ void Instance::reInitConnection(DcId dcId) {
 	_private->reInitConnection(dcId);
 }
 
-void Instance::logout(Fn<void()> done) {
-	_private->logout(std::move(done));
+void Instance::logout(Fn<void()> done, Fn<void(QByteArray)> rememberToken) {
+	_private->logout(std::move(done), std::move(rememberToken));
 }
 
 void Instance::dcPersistentKeyChanged(

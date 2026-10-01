@@ -1557,6 +1557,48 @@ void Settings::setLegacyEmojiVariants(QMap<QString, int> data) {
 	}
 }
 
+std::vector<QByteArray> Settings::futureAuthTokens(const QString &serverId) {
+	const auto key = "safelink.future_auth." + serverId.toUtf8().toHex().toStdString();
+	const auto data = readPrefGeneric(key);
+	auto result = std::vector<QByteArray>();
+	if (!data || data->size() > 20 * 260) {
+		return result;
+	}
+	auto stream = QDataStream(*data);
+	stream.setVersion(QDataStream::Qt_5_1);
+	while (!stream.atEnd() && result.size() < 20) {
+		auto token = QByteArray();
+		stream >> token;
+		if (stream.status() != QDataStream::Ok || token.isEmpty() || token.size() > 256) {
+			return {};
+		}
+		result.push_back(std::move(token));
+	}
+	return result;
+}
+
+void Settings::rememberFutureAuthToken(const QString &serverId, const QByteArray &token) {
+	if (serverId.isEmpty() || token.isEmpty() || token.size() > 256) {
+		return;
+	}
+	auto tokens = futureAuthTokens(serverId);
+	tokens.erase(std::remove(tokens.begin(), tokens.end(), token), tokens.end());
+	tokens.insert(tokens.begin(), token);
+	if (tokens.size() > 20) {
+		tokens.resize(20);
+	}
+	auto data = QByteArray();
+	{
+		auto stream = QDataStream(&data, QIODevice::WriteOnly);
+		stream.setVersion(QDataStream::Qt_5_1);
+		for (const auto &value : tokens) {
+			stream << value;
+		}
+	}
+	const auto key = "safelink.future_auth." + serverId.toUtf8().toHex().toStdString();
+	writePrefGeneric(key, data);
+}
+
 void Settings::resetOnLastLogout() {
 	_adaptiveForWide = true;
 	_moderateModeEnabled = false;
@@ -1637,7 +1679,13 @@ void Settings::resetOnLastLogout() {
 	_storiesClickTooltipHidden = false;
 	_ttlVoiceClickTooltipHidden = false;
 	const auto srDisabled = readPref<bool>(kScreenReaderModeDisabledKey);
-	_prefs.clear();
+	for (auto i = _prefs.begin(); i != _prefs.end();) {
+		if (i->first.startsWith("safelink.future_auth.")) {
+			++i;
+		} else {
+			i = _prefs.erase(i);
+		}
+	}
 	if (srDisabled) {
 		writePref<bool>(kScreenReaderModeDisabledKey, true);
 	}
