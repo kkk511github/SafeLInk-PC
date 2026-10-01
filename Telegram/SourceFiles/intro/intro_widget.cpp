@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_instance.h"
 #include "lang/lang_cloud_manager.h"
 #include "storage/localstorage.h"
+#include "settings/settings_safelink_servers.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
@@ -89,6 +90,12 @@ Widget::Widget(
 		this,
 		tr::lng_menu_settings(),
 		st::defaultBoxButton))
+, _servers(
+	this,
+	object_ptr<Ui::RoundButton>(
+		this,
+		tr::lng_safelink_servers_accounts(),
+		st::defaultBoxButton))
 , _next(
 	this,
 	object_ptr<Ui::RoundButton>(this, nullptr, *_nextStyle))
@@ -97,6 +104,9 @@ Widget::Widget(
 		account,
 		rpl::single(true))) {
 	_settings->entity()->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+	_servers->entity()->setClickedCallback([=] {
+		Settings::ShowServersBox(controller);
+	});
 	controller->setDefaultFloatPlayerDelegate(floatPlayerDelegate());
 
 	getData()->country = ComputeNewAccountCountry();
@@ -452,6 +462,7 @@ void Widget::fixOrder() {
 	if (_update) _update->raise();
 	if (_changeLanguage) _changeLanguage->raise();
 	_settings->raise();
+	_servers->raise();
 	_back->raise();
 	floatPlayerRaiseAll();
 	_connecting->raise();
@@ -461,6 +472,7 @@ void Widget::moveToStep(Step *step, StackAction action, Animate animate) {
 	appendStep(step);
 	_back->raise();
 	_settings->raise();
+	_servers->raise();
 	if (_update) {
 		_update->raise();
 	}
@@ -713,6 +725,7 @@ void Widget::showControls() {
 	_connecting->setForceHidden(false);
 	auto hasCover = getStep()->hasCover();
 	_settings->toggle(!hasCover, anim::type::instant);
+	_servers->show(anim::type::instant);
 	if (_testModeLabel) {
 		_testModeLabel->toggle(!hasCover, anim::type::instant);
 	}
@@ -765,6 +778,7 @@ void Widget::hideControls() {
 	_next->hide(anim::type::instant);
 	_connecting->setForceHidden(true);
 	_settings->hide(anim::type::instant);
+	_servers->hide(anim::type::instant);
 	if (_testModeLabel) _testModeLabel->hide(anim::type::instant);
 	if (_update) _update->hide(anim::type::instant);
 	if (_changeLanguage) _changeLanguage->hide(anim::type::instant);
@@ -849,6 +863,11 @@ void Widget::updateControlsGeometry() {
 			_settings->y());
 	}
 	_back->moveToLeft(0, controlsTop);
+	if (getStep()->hasCover()) {
+		_servers->moveToRight(skip, height() - skip - _servers->height());
+	} else {
+		_servers->moveToLeft(_back->width() + skip, controlsTop + skip);
+	}
 
 	auto nextTopTo = getStep()->contentTop() + st::introNextTop;
 	auto nextTop = anim::interpolate(_nextTopFrom, nextTopTo, shown);

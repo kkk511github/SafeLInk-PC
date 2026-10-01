@@ -8348,5 +8348,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_safelink_trust_server" = "确认信任此服务器及其公钥？";
 "lng_safelink_confirm_server" = "确认添加";
 "lng_safelink_current_server" = " · 当前服务器";
+"lng_safelink_login_account_limit" = "已达到账号数量上限，请先切换到已有账号，再管理账号或添加服务器账号。";
 
 // Keys finished

@@ -150,14 +150,21 @@ bool SaveServer(const SavedServer &entry) {
 }
 
 void AddAccount(
-		not_null<Window::SessionController*> controller,
+		not_null<Window::Controller*> controller,
 		MTP::SafeLinkServer server) {
-	controller->window().preventOrInvoke(crl::guard(controller, [=] {
+	controller->preventOrInvoke(crl::guard(controller, [=] {
 		auto &domain = Core::App().domain();
-		domain.removeRedundantAccounts();
-		Core::App().setActivePrimaryWindow(&controller->window());
+		if (controller->maybeSession()) {
+			domain.removeRedundantAccounts();
+		}
+		Core::App().setActivePrimaryWindow(controller);
 		if (!domain.addServerAccount(server)) {
-			controller->show(Box(AccountsLimitBox, &controller->session()));
+			if (const auto session = controller->maybeSession()) {
+				controller->show(Box(AccountsLimitBox, session));
+			} else {
+				controller->show(Ui::MakeInformBox(
+					tr::lng_safelink_login_account_limit()));
+			}
 		}
 	}));
 }
@@ -165,6 +172,10 @@ void AddAccount(
 } // namespace
 
 void ShowAddServerBox(not_null<Window::SessionController*> controller) {
+	ShowAddServerBox(&controller->window());
+}
+
+void ShowAddServerBox(not_null<Window::Controller*> controller) {
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
 		box->setTitle(tr::lng_safelink_add_server());
 		box->setWidth(st::boxWideWidth);
@@ -268,10 +279,17 @@ void ShowAddServerBox(not_null<Window::SessionController*> controller) {
 }
 
 void ShowServersBox(not_null<Window::SessionController*> controller) {
+	ShowServersBox(&controller->window());
+}
+
+void ShowServersBox(not_null<Window::Controller*> controller) {
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
 		box->setTitle(tr::lng_safelink_servers_accounts());
 		box->setWidth(st::boxWideWidth);
 		Core::App().domain().accountsChanges() | rpl::on_next([=] {
+			box->closeBox();
+		}, box->lifetime());
+		controller->sessionControllerChanges() | rpl::on_next([=] {
 			box->closeBox();
 		}, box->lifetime());
 		for (const auto &[index, account] : Core::App().domain().accounts()) {
@@ -287,7 +305,7 @@ void ShowServersBox(not_null<Window::SessionController*> controller) {
 		} else {
 			for (const auto &entry : *servers) {
 				const auto server = entry.server;
-				const auto active = controller->session().mtp().config().serverId() == server.id;
+				const auto active = controller->account().mtp().config().serverId() == server.id;
 				Ui::AddSubsectionTitle(layout, rpl::single(server.name
 					+ (active ? tr::lng_safelink_current_server(tr::now) : QString())));
 				layout->add(object_ptr<Ui::FlatLabel>(layout,

@@ -825,11 +825,11 @@ void SetupAccountsWrap(
 
 [[nodiscard]] object_ptr<Ui::SettingsButton> MakeAccountButton(
 		QWidget *parent,
-		not_null<Window::SessionController*> window,
+		not_null<Window::Controller*> window,
 		not_null<::Main::Account*> account,
 		Fn<void(Qt::KeyboardModifiers)> callback,
 		bool locked) {
-	const auto active = (account == &window->session().account());
+	const auto active = (account == &window->account());
 	const auto session = &account->session();
 	const auto user = session->user();
 
@@ -854,8 +854,11 @@ void SetupAccountsWrap(
 			session,
 			std::move(text),
 			!active,
-			[=] { return window->isGifPausedAtLeastFor(
-				Window::GifPauseReason::Layer); });
+			[=] {
+				const auto controller = window->sessionController();
+				return !controller || controller->isGifPausedAtLeastFor(
+					Window::GifPauseReason::Layer);
+			});
 		composedBadge->sizeValue(
 		) | rpl::on_next([=](const QSize &s) {
 			container->resize(s);
@@ -920,7 +923,7 @@ void SetupAccountsWrap(
 		if (state->menu) {
 			return;
 		}
-		const auto isActive = session == &window->session();
+		const auto isActive = session == window->maybeSession();
 		state->menu = base::make_unique_q<Ui::PopupMenu>(
 			raw,
 			st::popupMenuExpandedSeparator);
@@ -1202,7 +1205,7 @@ void AccountsList::rebuild() {
 			};
 			button.reset(inner->add(MakeAccountButton(
 				inner,
-				_controller,
+				&_controller->window(),
 				account,
 				std::move(callback),
 				nextIsLocked)));
@@ -1507,7 +1510,7 @@ AccountsEvents SetupAccounts(
 
 void SetupServerAccounts(
 		not_null<Ui::VerticalLayout*> container,
-		not_null<Window::SessionController*> controller,
+		not_null<Window::Controller*> controller,
 		const QString &serverId,
 		Fn<void()> close) {
 	auto position = 0;

@@ -23,6 +23,7 @@ class Account;
 } // namespace Main
 
 namespace Window {
+class Controller;
 class SessionController;
 } // namespace Window
 
@@ -40,7 +41,7 @@ AccountsEvents SetupAccounts(
 
 void SetupServerAccounts(
 	not_null<Ui::VerticalLayout*> container,
-	not_null<Window::SessionController*> controller,
+	not_null<Window::Controller*> controller,
 	const QString &serverId,
 	Fn<void()> close);
 
