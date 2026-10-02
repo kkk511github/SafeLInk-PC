@@ -1624,6 +1624,19 @@ SessionController::SessionController(
 , _defaultChatTheme(std::make_shared<Ui::ChatTheme>())
 , _chatStyle(std::make_unique<Ui::ChatStyle>(session->colorIndicesValue())) {
 	init();
+	session->appConfig().value() | rpl::map([=] {
+		return session->appConfig().get<bool>(
+			u"safelink_registration_password_required"_q, false);
+	}) | rpl::distinct_until_changed() | rpl::on_next([=](bool required) {
+		_registrationPasswordRequired = required;
+		crl::on_main(this, [=] { checkRegistrationPassword(); });
+	}, lifetime());
+	session->api().cloudPassword().state() | rpl::on_next([=](const Core::CloudPasswordState &state) {
+		if (_registrationPasswordRequired && state.hasPassword && state.unconfirmedPattern.isEmpty()) {
+			_registrationPasswordRequired = false;
+			session->appConfig().refresh();
+		}
+	}, lifetime());
 
 	_chatStyleTheme = _defaultChatTheme;
 	_chatStyle->apply(_defaultChatTheme.get());
@@ -3080,6 +3093,9 @@ void SessionController::showPeerHistory(
 		PeerId peerId,
 		const SectionShow &params,
 		MsgId msgId) {
+	if (checkRegistrationPassword()) {
+		return;
+	}
 	content()->showHistory(peerId, params, msgId);
 }
 
@@ -3148,6 +3164,9 @@ void SessionController::showSection(
 }
 
 void SessionController::showBackFromStack(const SectionShow &params) {
+	if (checkRegistrationPassword()) {
+		return;
+	}
 	const auto bad = [&] {
 		// If we show a currently-being-destroyed topic, then
 		// skip it and show back one more.
@@ -3971,6 +3990,21 @@ void SessionController::showStarGiftAuction(uint64 giftId) {
 		giftId,
 		[] {},
 		[=] { _starGiftAuctionLifetime.destroy(); });
+}
+
+bool SessionController::checkRegistrationPassword() {
+	if (!_registrationPasswordRequired) {
+		return false;
+	}
+	const auto state = session().api().cloudPassword().stateCurrent();
+	if (state && state->hasPassword && state->unconfirmedPattern.isEmpty()) {
+		_registrationPasswordRequired = false;
+		session().appConfig().refresh();
+		return false;
+	}
+	showToast(u"请先设置两步验证密码，再使用 SafeLink。"_q);
+	showCloudPassword(QString());
+	return true;
 }
 
 void SessionController::showCloudPassword(const QString &highlight) {

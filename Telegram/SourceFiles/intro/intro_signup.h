@@ -38,6 +38,7 @@ protected:
 private:
 	void refreshLang();
 	void updateControlsGeometry();
+	void refreshInvitePolicy();
 
 	void nameSubmitDone(const MTPauth_Authorization &result);
 	void nameSubmitFail(const MTP::Error &error);
@@ -48,6 +49,7 @@ private:
 	object_ptr<Ui::InputField> _invite;
 	QString _firstName, _lastName;
 	mtpRequestId _sentRequest = 0;
+	mtpRequestId _invitePolicyRequest = 0;
 
 	bool _invertOrder = false;
 

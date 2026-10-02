@@ -34,7 +34,7 @@ SignupWidget::SignupWidget(
 	st::defaultUserpicButton)
 , _first(this, st::introSignupName, tr::lng_signup_firstname())
 , _last(this, st::introSignupName, tr::lng_signup_lastname())
-, _invite(this, st::introName, tr::lng_safelink_registration_invite())
+, _invite(this, st::introRegistrationInvite, tr::lng_safelink_registration_invite())
 , _invertOrder(langFirstNameGoesSecond()) {
 	_photo->showCustomOnChosen();
 
@@ -83,6 +83,7 @@ void SignupWidget::updateControlsGeometry() {
 
 	auto firstTop = contentTop() + st::introStepFieldTop;
 	auto secondTop = firstTop + st::introName.heightMin + st::introPhoneTop;
+	_invite->resizeToWidth(_first->width() + st::introSignupNameGap + _last->width());
 	_invite->moveToLeft(contentLeft(), secondTop);
 	const auto secondLeft = contentLeft() + st::introSignupName.width + st::introSignupNameGap;
 	if (_invertOrder) {
@@ -104,6 +105,7 @@ void SignupWidget::setInnerFocus() {
 
 void SignupWidget::activate() {
 	Step::activate();
+	refreshInvitePolicy();
 	_first->show();
 	_last->show();
 	_invite->show();
@@ -113,6 +115,37 @@ void SignupWidget::activate() {
 
 void SignupWidget::cancelled() {
 	api().request(base::take(_sentRequest)).cancel();
+	api().request(base::take(_invitePolicyRequest)).cancel();
+}
+
+void SignupWidget::refreshInvitePolicy() {
+	api().request(base::take(_invitePolicyRequest)).cancel();
+	_invitePolicyRequest = api().request(MTPhelp_GetAppConfig(
+		MTP_int(0)
+	)).done([=](const MTPhelp_AppConfig &result) {
+		_invitePolicyRequest = 0;
+		if (result.type() != mtpc_help_appConfig) {
+			return;
+		}
+		const auto &config = result.c_help_appConfig().vconfig();
+		if (config.type() != mtpc_jsonObject) {
+			return;
+		}
+		auto required = false;
+		for (const auto &item : config.c_jsonObject().vvalue().v) {
+			item.match([&](const MTPDjsonObjectValue &entry) {
+				if (qs(entry.vkey()) == u"safelink_registration_invite_required"_q
+					&& entry.vvalue().type() == mtpc_jsonBool) {
+					required = mtpIsTrue(entry.vvalue().c_jsonBool().vvalue());
+				}
+			});
+		}
+		_invite->setPlaceholder(required
+			? tr::lng_safelink_registration_invite_mandatory_hint()
+			: tr::lng_safelink_registration_invite_optional_hint());
+	}).fail([=] {
+		_invitePolicyRequest = 0;
+	}).send();
 }
 
 void SignupWidget::nameSubmitDone(const MTPauth_Authorization &result) {
@@ -133,6 +166,7 @@ void SignupWidget::nameSubmitFail(const MTP::Error &error) {
 
 	auto &err = error.type();
 	if (err == u"INVITE_CODE_REQUIRED"_q || err == u"INVITE_CODE_INVALID"_q) {
+		refreshInvitePolicy();
 		showError(err == u"INVITE_CODE_REQUIRED"_q ? tr::lng_safelink_registration_invite_required() : tr::lng_safelink_registration_invite_invalid());
 		_invite->showError();
 		_invite->setFocus();

@@ -118,6 +118,9 @@ introSignupName: InputField(introName) {
 	width: 144px;
 }
 introSignupNameGap: 12px;
+introRegistrationInvite: InputField(introName) {
+	placeholderScale: 0.;
+}
 introPassword: introCountry;
 introPasswordTop: 74px;
 introPasswordHintTop: 151px;

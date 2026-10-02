@@ -762,6 +762,7 @@ private:
 
 	void init();
 	void setupShortcuts();
+	bool checkRegistrationPassword();
 	void checkOpenedFilter();
 	void suggestArchiveAndMute();
 	void activateFirstChatsFilter();
@@ -898,6 +899,7 @@ private:
 
 	rpl::lifetime _starGiftAuctionLifetime;
 	rpl::lifetime _showCloudPasswordLifetime;
+	bool _registrationPasswordRequired = false;
 
 	rpl::lifetime _lifetime;
 
