@@ -17,7 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "styles/style_intro.h"
-#include "styles/style_boxes.h"
+#include "styles/style_userpic_button.h"
 
 namespace Intro {
 namespace details {
@@ -164,7 +164,7 @@ void SignupWidget::nameSubmitFail(const MTP::Error &error) {
 		return;
 	}
 
-	auto &err = error.type();
+	const auto &err = error.type();
 	if (err == u"INVITE_CODE_REQUIRED"_q || err == u"INVITE_CODE_INVALID"_q) {
 		refreshInvitePolicy();
 		showError(err == u"INVITE_CODE_REQUIRED"_q ? tr::lng_safelink_registration_invite_required() : tr::lng_safelink_registration_invite_invalid());

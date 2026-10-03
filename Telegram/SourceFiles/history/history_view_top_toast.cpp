@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ui/rect.h"
 #include "ui/toast/toast.h"
+#include "ui/widgets/elastic_scroll.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/tooltip.h"
@@ -71,16 +72,24 @@ void InfoTooltip::hide(anim::type animated) {
 }
 
 void AnchoredTooltip::show(
-		not_null<Ui::ScrollArea*> scroll,
+		not_null<Ui::ElasticScroll*> scroll,
+		QRect globalArea,
+		TextWithEntities text) {
+	show(scroll, scroll->scrolls(), globalArea, std::move(text));
+}
+
+void AnchoredTooltip::show(
+		not_null<QWidget*> widget,
+		rpl::producer<> scrolls,
 		QRect globalArea,
 		TextWithEntities text) {
 	if (globalArea.isEmpty()) {
 		globalArea = QRect(QCursor::pos(), Size(1));
 	}
 	_tooltip = base::make_unique_q<Ui::ImportantTooltip>(
-		scroll,
+		widget,
 		Ui::MakeNiceTooltipLabel(
-			scroll,
+			widget,
 			rpl::single(std::move(text)),
 			st::boxWideWidth,
 			st::defaultImportantTooltipLabel),
@@ -89,14 +98,13 @@ void AnchoredTooltip::show(
 	raw->toggleFast(false);
 
 	const auto local = QRect(
-		scroll->mapFromGlobal(globalArea.topLeft()),
+		widget->mapFromGlobal(globalArea.topLeft()),
 		globalArea.size());
 	raw->pointAt(local, RectPart::Top | RectPart::Center);
 	raw->toggleAnimated(true);
 	raw->hideAfter(kAnchoredTooltipDuration);
 
-	scroll->scrolls(
-	) | rpl::on_next([=] {
+	std::move(scrolls) | rpl::on_next([=] {
 		raw->toggleAnimated(false);
 	}, raw->lifetime());
 }

@@ -32,7 +32,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_shared_media.h"
 #include "window/window_session_controller.h"
 #include "window/notifications_manager.h"
-#include "styles/style_boxes.h"
 
 namespace Data {
 namespace {
@@ -87,16 +86,19 @@ Forum::~Forum() {
 	auto &changes = session().changes();
 	const auto peerId = _history->peer->id;
 	for (const auto &[rootId, topic] : _topics) {
-		storage.unload(Storage::SharedMediaUnloadThread(
-			peerId,
-			rootId,
-			PeerId()));
+		if (rootId) {
+			storage.unload(Storage::SharedMediaUnloadThread(
+				peerId,
+				rootId,
+				PeerId()));
+		}
 		_history->setForwardDraft(rootId, PeerId(), {});
 
 		const auto raw = topic.get();
 		changes.topicRemoved(raw);
 		changes.entryRemoved(raw);
 	}
+	storage.unload(Storage::SharedMediaUnloadAllTopics(peerId));
 }
 
 Session &Forum::owner() const {
@@ -210,6 +212,12 @@ void Forum::applyTopicDeleted(MsgId rootId) {
 
 	const auto i = _topics.find(rootId);
 	if (i == end(_topics)) {
+		if (rootId) {
+			session().storage().unload(Storage::SharedMediaUnloadThread(
+				_history->peer->id,
+				rootId,
+				PeerId()));
+		}
 		return;
 	}
 	const auto raw = i->second.get();
@@ -234,10 +242,12 @@ void Forum::applyTopicDeleted(MsgId rootId) {
 	_topics.erase(i);
 
 	_history->destroyMessagesByTopic(rootId);
-	session().storage().unload(Storage::SharedMediaUnloadThread(
-		_history->peer->id,
-		rootId,
-		PeerId()));
+	if (rootId) {
+		session().storage().unload(Storage::SharedMediaUnloadThread(
+			_history->peer->id,
+			rootId,
+			PeerId()));
+	}
 	_history->setForwardDraft(rootId, PeerId(), {});
 }
 

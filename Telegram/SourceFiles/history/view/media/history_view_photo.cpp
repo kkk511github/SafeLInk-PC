@@ -44,7 +44,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "core/ui_integration.h"
 #include "styles/style_chat.h"
-#include "styles/style_chat_helpers.h"
 
 namespace HistoryView {
 namespace {
@@ -56,6 +55,29 @@ using Data::PhotoSize;
 
 [[nodiscard]] bool IsHostedInstantViewMedia(not_null<const Element*> parent) {
 	return parent->Get<InstantViewMediaRuntime>() != nullptr;
+}
+
+[[nodiscard]] double HostedInstantViewMediaPixelScale(
+		not_null<const Element*> parent) {
+	const auto runtime = parent->Get<InstantViewMediaRuntime>();
+	return runtime ? runtime->mediaPixelScale : 1.;
+}
+
+[[nodiscard]] QSize ScaledInstantViewMediaSize(QSize size, double scale) {
+	return (scale == 1.)
+		? size
+		: QSize(
+			std::max(int(base::SafeRound(size.width() * scale)), 1),
+			std::max(int(base::SafeRound(size.height() * scale)), 1));
+}
+
+[[nodiscard]] QSize HostedInstantViewForcedSize(
+		not_null<const Element*> parent,
+		not_null<const Media*> media) {
+	const auto runtime = parent->Get<InstantViewMediaRuntime>();
+	return (runtime && runtime->forcedFor == media)
+		? runtime->forcedSize
+		: QSize();
 }
 
 [[nodiscard]] QSize PhotoDesiredMediaSize(
@@ -95,7 +117,8 @@ Photo::Photo(
 , _spoiler((spoiler || realParent->isMediaSensitive())
 	? std::make_unique<MediaSpoiler>()
 	: nullptr)
-, _sensitiveSpoiler(realParent->isMediaSensitive() ? 1 : 0) {
+, _sensitiveSpoiler(realParent->isMediaSensitive() ? 1 : 0)
+, _ttlCover(realParent->isTtlCoveredMedia() ? 1 : 0) {
 	create(realParent->fullId());
 }
 
@@ -209,6 +232,10 @@ QSize Photo::countOptimalSize() {
 	if (_serviceWidth > 0) {
 		return { int(_serviceWidth), int(_serviceWidth) };
 	}
+	if (const auto forced = HostedInstantViewForcedSize(_parent, this)
+		; !forced.isEmpty()) {
+		return forced;
+	}
 	const auto hostedInstantView = IsHostedInstantViewMedia(_parent);
 	const auto dimensions = photoSize();
 	const auto scaled = PhotoDesiredMediaSize(dimensions, hostedInstantView);
@@ -221,15 +248,19 @@ QSize Photo::countOptimalSize() {
 			? st::historyPhotoBubbleMinWidth
 			: st::minPhotoSize),
 		maxMediaWidth);
-	const auto maxActualWidth = qMax(scaled.width(), minWidth);
-	auto maxWidth = qMax(maxActualWidth, scaled.height());
-	auto minHeight = qMax(scaled.height(), st::minPhotoSize);
+	const auto maxActualWidth = std::max(scaled.width(), minWidth);
+	auto maxWidth = std::max(maxActualWidth, scaled.height());
+	auto minHeight = std::max(scaled.height(), st::minPhotoSize);
 	if (_parent->hasBubble()) {
 		const auto botTop = _parent->Get<FakeBotAboutTop>();
 		const auto captionMaxWidth = _parent->textualMaxWidth();
 		if (botTop || !_parent->data()->isFakeAboutView()) {
-			const auto maxWithCaption = qMin(st::msgMaxWidth, captionMaxWidth);
-			maxWidth = qMin(qMax(maxWidth, maxWithCaption), st::msgMaxWidth);
+			const auto maxWithCaption = std::min(
+				st::msgMaxWidth,
+				captionMaxWidth);
+			maxWidth = std::min(
+				std::max(maxWidth, maxWithCaption),
+				st::msgMaxWidth);
 			minHeight = adjustHeightForLessCrop(
 				dimensions,
 				{ maxWidth, minHeight });
@@ -242,13 +273,17 @@ QSize Photo::countCurrentSize(int newWidth) {
 	if (_serviceWidth) {
 		return { int(_serviceWidth), int(_serviceWidth) };
 	}
+	if (const auto forced = HostedInstantViewForcedSize(_parent, this)
+		; !forced.isEmpty()) {
+		return forced;
+	}
 	const auto hostedInstantView = IsHostedInstantViewMedia(_parent);
 	const auto thumbMaxWidth = hostedInstantView
 		? std::max(newWidth, 1)
-		: qMin(newWidth, st::maxMediaSize);
+		: std::min(newWidth, st::maxMediaSize);
 	const auto minWidth = std::clamp(
 		_parent->minWidthForMedia(),
-		qMin(thumbMaxWidth, _parent->hasBubble()
+		std::min(thumbMaxWidth, _parent->hasBubble()
 			? st::historyPhotoBubbleMinWidth
 			: st::minPhotoSize),
 		thumbMaxWidth);
@@ -262,8 +297,8 @@ QSize Photo::countCurrentSize(int newWidth) {
 			desired,
 			newWidth,
 			hostedInstantView ? newWidth : maxWidth());
-	newWidth = qMax(pix.width(), minWidth);
-	auto newHeight = qMax(pix.height(), st::minPhotoSize);
+	newWidth = std::max(pix.width(), minWidth);
+	auto newHeight = std::max(pix.height(), st::minPhotoSize);
 	if (_parent->hasBubble()) {
 		auto captionMaxWidth = _parent->textualMaxWidth();
 		const auto botTop = _parent->Get<FakeBotAboutTop>();
@@ -271,17 +306,19 @@ QSize Photo::countCurrentSize(int newWidth) {
 			accumulate_max(captionMaxWidth, botTop->maxWidth);
 		}
 		if (botTop || !_parent->data()->isFakeAboutView()) {
-			const auto maxWithCaption = qMin(
+			const auto maxWithCaption = std::min(
 				st::msgMaxWidth,
 				captionMaxWidth);
-			newWidth = qMin(qMax(newWidth, maxWithCaption), thumbMaxWidth);
+			newWidth = std::min(
+				std::max(newWidth, maxWithCaption),
+				thumbMaxWidth);
 			newHeight = adjustHeightForLessCrop(
 				dimensions,
 				{ newWidth, newHeight });
 		}
 	}
 	if (newWidth >= maxWidth()) {
-		newHeight = qMin(newHeight, minHeight());
+		newHeight = std::min(newHeight, minHeight());
 	}
 	const auto enlargeInner = st::historyPageEnlargeSize;
 	const auto enlargeOuter = 2 * st::historyPageEnlargeSkip + enlargeInner;
@@ -301,7 +338,7 @@ int Photo::adjustHeightForLessCrop(QSize dimensions, QSize current) const {
 		|| !::Media::Streaming::FrameResizeMayExpand(current, dimensions)) {
 		return current.height();
 	}
-	return qMax(
+	return std::max(
 		current.height(),
 		current.width() * dimensions.height() / dimensions.width());
 }
@@ -355,11 +392,11 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
 		}
 		if (revealed > 0.) {
 			validateImageCache(rthumb.size(), rounding);
-			p.drawImage(rthumb.topLeft(), _imageCache);
+			p.drawImage(rthumb, _imageCache);
 		}
 		if (revealed < 1.) {
 			p.setOpacity(1. - revealed);
-			p.drawImage(rthumb.topLeft(), _spoiler->background);
+			p.drawImage(rthumb, _spoiler->background);
 			fillImageSpoiler(p, _spoiler.get(), rthumb, context);
 			p.setOpacity(1.);
 		}
@@ -369,8 +406,11 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
 	}
 
 	const auto showEnlarge = loaded && _showEnlarge;
+	const auto ttlCovered = _ttlCover
+		&& _spoiler
+		&& !_spoiler->revealed;
 	const auto paintInCenter = !_sensitiveSpoiler
-		&& (radial || (!loaded && !_data->loading()));
+		&& (radial || (!loaded && !_data->loading()) || ttlCovered);
 	if (paintInCenter || showEnlarge) {
 		p.setPen(Qt::NoPen);
 		if (context.selected()) {
@@ -401,19 +441,38 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
 		}
 
 		p.setOpacity(radialOpacity);
-		const auto &icon = (radial || _data->loading())
-			? sti->historyFileThumbCancel
-			: sti->historyFileThumbDownload;
-		icon.paintInCenter(p, inner);
+		if (radial || _data->loading()) {
+			sti->historyFileThumbCancel.paintInCenter(p, inner);
+		} else if (ttlCovered) {
+			paintTtlFire(p, inner);
+			PaintTtlSingleViewBadge(p, inner, _realParent, context);
+		} else {
+			sti->historyFileThumbDownload.paintInCenter(p, inner);
+		}
 		p.setOpacity(1);
 		if (radial) {
 			QRect rinner(inner.marginsRemoved(QMargins(st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine)));
 			_animation->radial.draw(p, rinner, st::msgFileRadialLine, sti->historyFileThumbRadialFg);
+		} else if (ttlCovered && !_data->loading()) {
+			paintTtlCountdown(
+				p,
+				inner,
+				st::msgFileRadialLine,
+				sti->historyFileThumbRadialFg,
+				context.paused);
 		}
 	} else if (_sensitiveSpoiler || preview) {
 		drawSpoilerTag(p, rthumb, context, [&] {
 			return spoilerTagBackground();
 		});
+	}
+	if (ttlCovered) {
+		PaintTtlLabel(
+			p,
+			QPoint(paintx, painty),
+			width(),
+			_realParent,
+			context);
 	}
 	if (showEnlarge) {
 		auto hq = PainterHighQualityEnabler(p);
@@ -516,14 +575,17 @@ void Photo::validateImageCache(
 		std::optional<Ui::BubbleRounding> rounding) const {
 	const auto large = _dataMedia->image(PhotoSize::Large);
 	const auto ratio = style::DevicePixelRatio();
+	const auto scaled = ScaledInstantViewMediaSize(
+		outer,
+		HostedInstantViewMediaPixelScale(_parent));
 	const auto blurredValue = large ? 0 : 1;
-	if (_imageCache.size() == (outer * ratio)
+	if (_imageCache.size() == (scaled * ratio)
 		&& _imageCacheRounding == rounding
 		&& _imageCacheBlurred == blurredValue) {
 		return;
 	}
 	_imageCache = Images::Round(
-		prepareImageCache(outer),
+		prepareImageCache(scaled),
 		MediaRoundingMask(rounding));
 	_imageCacheRounding = rounding;
 	_imageCacheBlurred = blurredValue;
@@ -535,12 +597,15 @@ void Photo::validateSpoilerImageCache(
 	Expects(_spoiler != nullptr);
 
 	const auto ratio = style::DevicePixelRatio();
-	if (_spoiler->background.size() == (outer * ratio)
+	const auto scaled = ScaledInstantViewMediaSize(
+		outer,
+		HostedInstantViewMediaPixelScale(_parent));
+	if (_spoiler->background.size() == (scaled * ratio)
 		&& _spoiler->backgroundRounding == rounding) {
 		return;
 	}
 	_spoiler->background = Images::Round(
-		prepareImageCacheWithLarge(outer, nullptr),
+		prepareImageCacheWithLarge(scaled, nullptr),
 		MediaRoundingMask(rounding));
 	_spoiler->backgroundRounding = rounding;
 }
@@ -786,11 +851,11 @@ void Photo::drawGrouped(
 	}
 	if (revealed > 0.) {
 		validateGroupedCache(geometry, rounding, cacheKey, cache);
-		p.drawPixmap(geometry.topLeft(), *cache);
+		p.drawPixmap(geometry, *cache);
 	}
 	if (revealed < 1.) {
 		p.setOpacity(1. - revealed);
-		p.drawImage(geometry.topLeft(), _spoiler->background);
+		p.drawImage(geometry, _spoiler->background);
 		fillImageSpoiler(p, _spoiler.get(), geometry, context);
 		p.setOpacity(1.);
 	}
@@ -807,10 +872,14 @@ void Photo::drawGrouped(
 		p.setOpacity(1.);
 	}
 
+	const auto ttlCovered = _ttlCover
+		&& _spoiler
+		&& !_spoiler->revealed;
 	const auto paintInCenter = !_sensitiveSpoiler
 		&& (radial
 			|| (!loaded && !_data->loading())
-			|| _data->waitingForAlbum());
+			|| _data->waitingForAlbum()
+			|| ttlCovered);
 	if (paintInCenter) {
 		const auto radialOpacity = radial
 			? _animation->radial.opacity()
@@ -851,7 +920,14 @@ void Photo::drawGrouped(
 			? &sti->historyFileThumbCancel
 			: nullptr;
 		p.setOpacity(backOpacity);
-		if (previous && radialOpacity > 0. && radialOpacity < 1.) {
+		const auto ttlIdle = ttlCovered
+			&& !radial
+			&& !_data->loading()
+			&& !_data->waitingForAlbum();
+		if (ttlIdle) {
+			paintTtlFire(p, inner);
+			PaintTtlSingleViewBadge(p, inner, _realParent, context);
+		} else if (previous && radialOpacity > 0. && radialOpacity < 1.) {
 			PaintInterpolatedIcon(p, icon, *previous, radialOpacity, inner);
 		} else {
 			icon.paintInCenter(p, inner);
@@ -861,7 +937,22 @@ void Photo::drawGrouped(
 			const auto line = st::historyGroupRadialLine;
 			const auto rinner = inner.marginsRemoved({ line, line, line, line });
 			_animation->radial.draw(p, rinner, line, sti->historyFileThumbRadialFg);
+		} else if (ttlIdle) {
+			paintTtlCountdown(
+				p,
+				inner,
+				st::historyGroupRadialLine,
+				sti->historyFileThumbRadialFg,
+				context.paused);
 		}
+	}
+	if (ttlCovered) {
+		PaintTtlLabel(
+			p,
+			geometry.topLeft(),
+			width(),
+			_realParent,
+			context);
 	}
 }
 
@@ -932,8 +1023,11 @@ void Photo::validateGroupedCache(
 			|| _dataMedia->image(PhotoSize::Thumbnail))
 		? 1
 		: 0;
-	const auto width = geometry.width();
-	const auto height = geometry.height();
+	const auto scaled = ScaledInstantViewMediaSize(
+		geometry.size(),
+		HostedInstantViewMediaPixelScale(_parent));
+	const auto width = scaled.width();
+	const auto height = scaled.height();
 	const auto options = (loaded ? Option() : Option::Blur);
 	const auto key = (uint64(width) << 48)
 		| (uint64(height) << 32)
@@ -962,12 +1056,12 @@ void Photo::validateGroupedCache(
 		: Image::BlankMedia().get();
 
 	*cacheKey = key;
-	auto scaled = Images::Prepare(
+	auto prepared = Images::Prepare(
 		image->original(),
 		pixSize * ratio,
 		{ .options = options, .outer = { width, height } });
 	auto rounded = Images::Round(
-		std::move(scaled),
+		std::move(prepared),
 		MediaRoundingMask(rounding));
 	*cache = Ui::PixmapFromImage(std::move(rounded));
 }

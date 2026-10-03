@@ -13,7 +13,7 @@ ENV PKG_CONFIG_PATH=/opt/rh/$TOOLSET/root/usr/lib64/pkgconfig:/opt/rh/$TOOLSET/r
 RUN --mount=type=cache,target=/var/cache/dnf <<EOF
 dnf -y install epel-release
 dnf config-manager --set-enabled powertools
-dnf -y install autoconf automake libtool pkgconfig make patch git \
+dnf -y install cmake autoconf automake libtool pkgconfig make patch git \
 	python3.11-pip python3.11-devel gperf flex bison clang-tools-extra \
 	lld ccache nasm file which wget perl-open perl-XML-Parser perl-IPC-Cmd \
 	xorg-x11-util-macros $TOOLSET-gcc $TOOLSET-gcc-c++ $TOOLSET-binutils \
@@ -27,7 +27,7 @@ EOF
 
 RUN <<EOF
 alternatives --set python3 /usr/bin/python3.11
-python3 -m pip install cmake meson ninja
+python3 -m pip install meson ninja
 EOF
 
 RUN <<EOF
@@ -42,7 +42,11 @@ chmod +x /usr/local/bin/pkg-config
 
 CMAKE_ROOT="$(cmake --system-information | sed -n 's/^CMAKE_ROOT "\([^"]*\)"$/\1/p')"
 test -n "$CMAKE_ROOT"
-sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/")/ -O0 {% if LTO %}-fno-lto -fno-use-linker-plugin{% endif %} -fuse-ld=lld")/' "$CMAKE_ROOT/Modules/Compiler/GNU.cmake"
+sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/")/ -O0 {% if LTO %}-fno-lto -fno-use-linker-plugin{% endif %}")/' "$CMAKE_ROOT/Modules/Compiler/GNU.cmake"
+for i in EXE SHARED MODULE; do
+	sed -i '1i string(APPEND CMAKE_'$i'_LINKER_FLAGS_DEBUG_INIT " -fuse-ld=lld")' "$CMAKE_ROOT/Modules/CMakeCommonLanguageInclude.cmake"
+done
+sed -i '/CMAKE_EXE_LINKER_FLAGS_INIT/s/")/ -Wl,--exclude-libs,ALL")/' "$CMAKE_ROOT/Modules/CMakeCommonLanguageInclude.cmake"
 sed -i '/__gcc_hints/d' "$CMAKE_ROOT/Modules/Compiler/GNU-FindBinUtils.cmake"
 sed -i '1i set(_CMAKE_TOOLCHAIN_LOCATION "")' "$CMAKE_ROOT/Modules/CMakeFindBinUtils.cmake"
 sed -i 's/NO_DEFAULT_PATH//g; s/PKG_CONFIG_ALLOW_SYSTEM_LIBS/PKG_CONFIG_IS_DUMB/g' "$CMAKE_ROOT/Modules/FindPkgConfig.cmake"
@@ -99,7 +103,6 @@ implib() {
 implib /usr/lib64/libgtk-3.so
 implib /usr/lib64/libgdk-3.so
 implib /usr/lib64/libgdk_pixbuf-2.0.so
-implib /usr/lib64/libpango-1.0.so
 implib /usr/lib64/libvdpau.so
 implib /usr/lib64/libva-x11.so
 implib /usr/lib64/libva-drm.so
@@ -109,12 +112,44 @@ implib /usr/lib64/libGLX.so
 implib /usr/lib64/libOpenGL.so
 implib /usr/lib64/libGL.so
 implib /usr/lib64/libdrm.so
+implib /usr/lib64/libudev.so
 implib /usr/lib64/libwayland-egl.so
 implib /usr/lib64/libwayland-cursor.so
 implib /usr/lib64/libwayland-client.so
 implib /usr/lib64/libwayland-server.so
 implib /usr/lib64/libX11-xcb.so
+implib /usr/lib64/libX11.so
 implib /usr/lib64/libxcb.so
+
+# Implib.so can only intercept functions, while the static libXext,
+# libXfixes, libXdamage, libXcomposite, libXrender reference three Xlib
+# threading data symbols. Define them with real locks (the always-on
+# XInitThreads semantics of libX11 1.8+). The layout is private to this
+# implementation: whether the real libX11 interposes these or keeps its
+# own copies, each lock implementation only ever sees its own objects.
+cat > libX11.locks.c <<'EOF2'
+#include <pthread.h>
+
+typedef struct _LockInfoRec {
+	pthread_mutex_t mutex;
+} LockInfoRec, *LockInfoPtr;
+
+static LockInfoRec GlobalLock = { PTHREAD_MUTEX_INITIALIZER };
+
+static void LockMutex(LockInfoPtr lock) {
+	pthread_mutex_lock(&lock->mutex);
+}
+
+static void UnlockMutex(LockInfoPtr lock) {
+	pthread_mutex_unlock(&lock->mutex);
+}
+
+LockInfoPtr _Xglobal_lock = &GlobalLock;
+void (*_XLockMutex_fn)(LockInfoPtr) = LockMutex;
+void (*_XUnlockMutex_fn)(LockInfoPtr) = UnlockMutex;
+EOF2
+gcc $CFLAGS -c -o libX11.locks.o libX11.locks.c
+ar rs /usr/local/lib64/libX11.a libX11.locks.o
 
 cd ../..
 rm -rf Implib.so
@@ -125,7 +160,7 @@ RUN <<EOF
 git init patches
 cd patches
 git remote add origin https://github.com/desktop-app/patches.git
-git fetch --depth=1 origin 701cfb4b3d6612188d168f198c842114fd64726f
+git fetch --depth=1 origin ebcd707f1763651089e3e7220ddd4f97cbcf87e0
 git reset --hard FETCH_HEAD
 rm -rf .git
 EOF
@@ -163,22 +198,6 @@ cd ..
 rm -rf xz
 EOF
 
-FROM builder AS protobuf
-RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v30.2 --depth=1 --recursive --shallow-submodules \
-	https://github.com/protocolbuffers/protobuf.git
-cd protobuf
-cmake -B build . \
-	-Dprotobuf_BUILD_TESTS=OFF \
-	-Dprotobuf_BUILD_PROTOBUF_BINARIES=ON \
-	-Dprotobuf_BUILD_LIBPROTOC=ON \
-	-Dprotobuf_WITH_ZLIB=OFF
-cmake --build build
-DESTDIR=/usr/src/protobuf-cache cmake --install build
-cd ..
-rm -rf protobuf
-EOF
-
 FROM builder AS lcms2
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
 git clone -b lcms2.15 --depth=1 https://github.com/mm2/Little-CMS.git
@@ -192,7 +211,7 @@ EOF
 
 FROM builder AS brotli
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v1.1.0 --depth=1 https://github.com/google/brotli.git
+git clone -b v1.2.0 --depth=1 https://github.com/google/brotli.git
 cd brotli
 cmake -B build . -DBUILD_SHARED_LIBS=OFF -DBROTLI_DISABLE_TESTS=ON
 cmake --build build
@@ -203,7 +222,7 @@ EOF
 
 FROM builder AS highway
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b 1.0.7 --depth=1 https://github.com/google/highway.git
+git clone -b 1.4.0 --depth=1 https://github.com/google/highway.git
 cd highway
 cmake -B build . -DBUILD_TESTING=OFF -DHWY_ENABLE_CONTRIB=OFF -DHWY_ENABLE_EXAMPLES=OFF
 cmake --build build
@@ -241,7 +260,7 @@ EOF
 
 FROM builder AS dav1d
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b 1.5.3 --depth=1 https://github.com/videolan/dav1d.git
+git clone -b 1.5.4 --depth=1 https://github.com/videolan/dav1d.git
 cd dav1d
 meson build \
 	--buildtype=plain \
@@ -263,21 +282,6 @@ meson compile -C build
 DESTDIR=/usr/src/openh264-cache meson install -C build
 cd ..
 rm -rf openh264
-EOF
-
-FROM builder AS de265
-RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v1.0.16 --depth=1 https://github.com/strukturag/libde265.git
-cd libde265
-cmake -B build . \
-	-DCMAKE_BUILD_TYPE=None \
-	-DBUILD_SHARED_LIBS=OFF \
-	-DENABLE_DECODER=OFF \
-	-DENABLE_SDL=OFF
-cmake --build build
-DESTDIR=/usr/src/de265-cache cmake --install build
-cd ..
-rm -rf libde265
 EOF
 
 FROM builder AS vpx
@@ -326,7 +330,7 @@ FROM builder AS avif
 COPY --link --from=dav1d /usr/src/dav1d-cache /
 
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v1.3.0 --depth=1 https://github.com/AOMediaCodec/libavif.git
+git clone -b v1.4.2 --depth=1 https://github.com/AOMediaCodec/libavif.git
 cd libavif
 cmake -B build . -DBUILD_SHARED_LIBS=OFF -DAVIF_CODEC_DAV1D=SYSTEM -DAVIF_LIBYUV=OFF
 cmake --build build
@@ -335,42 +339,13 @@ cd ..
 rm -rf libavif
 EOF
 
-FROM builder AS heif
-COPY --link --from=de265 /usr/src/de265-cache /
-
-RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v1.21.2 --depth=1 https://github.com/strukturag/libheif.git
-cd libheif
-cmake -B build . \
-	-DBUILD_SHARED_LIBS=OFF \
-	-DCMAKE_DISABLE_FIND_PACKAGE_Doxygen=ON \
-	-DBUILD_TESTING=OFF \
-	-DENABLE_PLUGIN_LOADING=OFF \
-	-DWITH_X265=OFF \
-	-DWITH_AOM_DECODER=OFF \
-	-DWITH_AOM_ENCODER=OFF \
-	-DWITH_X264=OFF \
-	-DWITH_OpenH264_DECODER=OFF \
-	-DWITH_RAV1E=OFF \
-	-DWITH_RAV1E_PLUGIN=OFF \
-	-DWITH_SvtEnc=OFF \
-	-DWITH_SvtEnc_PLUGIN=OFF \
-	-DWITH_DAV1D=OFF \
-	-DWITH_LIBSHARPYUV=OFF \
-	-DWITH_EXAMPLES=OFF
-cmake --build build
-DESTDIR=/usr/src/heif-cache cmake --install build
-cd ..
-rm -rf libheif
-EOF
-
 FROM builder AS jxl
 COPY --link --from=lcms2 /usr/src/lcms2-cache /
 COPY --link --from=brotli /usr/src/brotli-cache /
 COPY --link --from=highway /usr/src/highway-cache /
 
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v0.11.2 --depth=1 https://github.com/libjxl/libjxl.git
+git clone -b v0.12.0 --depth=1 https://github.com/libjxl/libjxl.git
 cd libjxl
 cmake -B build . \
 	-DBUILD_SHARED_LIBS=OFF \
@@ -629,7 +604,7 @@ COPY --link --from=xv /usr/src/xv-cache /
 COPY --link --from=nv-codec-headers /usr/src/nv-codec-headers-cache /
 
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b n6.1.1 --depth=1 https://github.com/FFmpeg/FFmpeg.git
+git clone -b n8.1.3 --depth=1 https://github.com/FFmpeg/FFmpeg.git
 cd FFmpeg
 ./configure \
 	--extra-cflags="-fno-lto -DCONFIG_SAFE_BITSTREAM_READER=1" \
@@ -742,6 +717,7 @@ cd FFmpeg
 	--enable-decoder=wmavoice \
 	--enable-encoder=aac \
 	--enable-encoder=libopenh264 \
+	--enable-encoder=libvpx_vp9 \
 	--enable-encoder=libopus \
 	--enable-encoder=pcm_s16le \
 	--enable-filter=atempo \
@@ -769,11 +745,45 @@ cd FFmpeg
 	--enable-muxer=mp4 \
 	--enable-muxer=ogg \
 	--enable-muxer=opus \
-	--enable-muxer=wav
+	--enable-muxer=wav \
+	--enable-muxer=webm
 make -j$(nproc)
 make DESTDIR=/usr/src/ffmpeg-cache install
 cd ..
 rm -rf ffmpeg
+EOF
+
+FROM patches AS heif
+COPY --link --from=ffmpeg /usr/src/ffmpeg-cache /
+
+RUN --mount=type=cache,target=/var/cache/ccache <<EOF
+git clone -b v1.23.5 --depth=1 https://github.com/strukturag/libheif.git
+cd libheif
+git apply ../patches/libheif.patch
+cmake -B build . \
+	-DBUILD_SHARED_LIBS=OFF \
+	-DBUILD_DOCUMENTATION=OFF \
+	-DBUILD_TESTING=OFF \
+	-DENABLE_PLUGIN_LOADING=OFF \
+	-DWITH_X265=OFF \
+	-DWITH_AOM_DECODER=OFF \
+	-DWITH_AOM_ENCODER=OFF \
+	-DWITH_X264=OFF \
+	-DWITH_OpenH264_DECODER=OFF \
+	-DWITH_RAV1E=OFF \
+	-DWITH_RAV1E_PLUGIN=OFF \
+	-DWITH_SvtEnc=OFF \
+	-DWITH_SvtEnc_PLUGIN=OFF \
+	-DWITH_DAV1D=OFF \
+	-DWITH_LIBDE265=OFF \
+	-DWITH_FFMPEG_DECODER=ON \
+	-DWITH_GDK_PIXBUF=OFF \
+	-DWITH_LIBSHARPYUV=OFF \
+	-DWITH_EXAMPLES=OFF
+cmake --build build
+DESTDIR=/usr/src/heif-cache cmake --install build
+cd ..
+rm -rf libheif
 EOF
 
 FROM builder AS pipewire
@@ -796,9 +806,10 @@ FROM builder AS openal
 COPY --link --from=pipewire /usr/src/pipewire-cache /
 
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b 1.24.3 --depth=1 https://github.com/kcat/openal-soft.git
+git clone -b 1.25.2 --depth=1 https://github.com/kcat/openal-soft.git
 cd openal-soft
 cmake -B build . \
+	-DCMAKE_DISABLE_FIND_PACKAGE_DBus1=ON \
 	-DLIBTYPE:STRING=STATIC \
 	-DALSOFT_EXAMPLES=OFF \
 	-DALSOFT_UTILS=OFF \
@@ -858,7 +869,7 @@ COPY --link --from=openssl /usr/src/openssl-cache /
 COPY --link --from=xkbcommon /usr/src/xkbcommon-cache /
 
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-QT=6.11.1
+QT=6.11.2
 git clone -b v$QT --depth=1 https://github.com/qt/qt5.git
 cd qt5
 git submodule update --init --recursive --depth=1 \
@@ -899,10 +910,17 @@ EOF
 
 FROM builder AS breakpad
 RUN --mount=type=cache,target=/var/cache/ccache <<EOF
-git clone -b v2024.02.16 --depth=1 https://chromium.googlesource.com/breakpad/breakpad.git
+git init breakpad
 cd breakpad
-git clone -b v2024.02.01 --depth=1 \
-	https://chromium.googlesource.com/linux-syscall-support.git src/third_party/lss
+git remote add origin https://chromium.googlesource.com/breakpad/breakpad.git
+git fetch --depth=1 origin 9aebd3d8ef5a246deb2c929b5666aaba160ebce6
+git reset --hard FETCH_HEAD
+git init src/third_party/lss
+cd src/third_party/lss
+git remote add origin https://chromium.googlesource.com/linux-syscall-support.git
+git fetch --depth=1 origin 29164a80da4d41134950d76d55199ea33fbb9613
+git reset --hard FETCH_HEAD
+cd ../../..
 CFLAGS="$CFLAGS -fno-lto" CXXFLAGS="$CXXFLAGS -fno-lto" ./configure
 make -j$(nproc)
 make DESTDIR=/usr/src/breakpad-cache install
@@ -933,7 +951,7 @@ RUN --mount=type=cache,target=/var/cache/ccache <<EOF
 git init tg_owt
 cd tg_owt
 git remote add origin https://github.com/desktop-app/tg_owt.git
-git fetch --depth=1 origin 5c5c71258777d0196dbb3a09cc37d2f56ead28ab
+git fetch --depth=1 origin e2d0e88d1bde6cc600da5dc92581dc97e4c1e685
 git reset --hard FETCH_HEAD
 git submodule update --init --recursive --depth=1
 cmake -B build . -DTG_OWT_DLOPEN_PIPEWIRE=ON
@@ -972,10 +990,37 @@ cd ..
 rm -rf tde2e
 EOF
 
+FROM patches AS tlottie
+RUN <<EOF
+RUST_TOOLCHAIN=1.96.1
+export RUSTUP_HOME=/usr/src/rustup
+export CARGO_HOME=/usr/src/cargo
+wget -O rustup-init.sh https://sh.rustup.rs
+sh rustup-init.sh -y --no-modify-path --profile minimal --default-toolchain $RUST_TOOLCHAIN
+rm rustup-init.sh
+export RUSTUP_TOOLCHAIN=$RUST_TOOLCHAIN
+export PATH=$CARGO_HOME/bin:$PATH
+export DESTDIR=/usr/src/tlottie-cache
+git init tlottie
+cd tlottie
+git remote add origin https://github.com/dkaraush/tlottie.git
+git fetch --depth=1 origin 31f1b542f88e7b4be9a01e749920d857535fc715
+git reset --hard FETCH_HEAD
+git apply ../patches/tlottie.patch
+cargo rustc --lib --release --locked \
+	--features c-api --crate-type staticlib \
+	--target x86_64-unknown-linux-gnu \
+	-- --print native-static-libs
+mkdir -p $DESTDIR/usr/local/lib $DESTDIR/usr/local/include/tlottie
+objcopy --strip-debug target/x86_64-unknown-linux-gnu/release/libtlottie.a $DESTDIR/usr/local/lib/libtlottie.a
+cp include/tlottie.h $DESTDIR/usr/local/include/tlottie/tlottie.h
+cd ..
+rm -rf tlottie rustup cargo
+EOF
+
 FROM builder
 COPY --link --from=zlib /usr/src/zlib-cache /
 COPY --link --from=xz /usr/src/xz-cache /
-COPY --link --from=protobuf /usr/src/protobuf-cache /
 COPY --link --from=lcms2 /usr/src/lcms2-cache /
 COPY --link --from=brotli /usr/src/brotli-cache /
 COPY --link --from=highway /usr/src/highway-cache /
@@ -983,7 +1028,6 @@ COPY --link --from=mozjpeg /usr/src/mozjpeg-cache /
 COPY --link --from=opus /usr/src/opus-cache /
 COPY --link --from=dav1d /usr/src/dav1d-cache /
 COPY --link --from=openh264 /usr/src/openh264-cache /
-COPY --link --from=de265 /usr/src/de265-cache /
 COPY --link --from=vpx /usr/src/vpx-cache /
 COPY --link --from=webp /usr/src/webp-cache /
 COPY --link --from=avif /usr/src/avif-cache /
@@ -1015,6 +1059,7 @@ COPY --link --from=breakpad /usr/src/breakpad-cache /
 COPY --link --from=webrtc /usr/src/webrtc-cache /
 COPY --link --from=ada /usr/src/ada-cache /
 COPY --link --from=tde2e /usr/src/tde2e-cache /
+COPY --link --from=tlottie /usr/src/tlottie-cache /
 
 COPY --link --from=patches /usr/src/patches patches
 RUN <<EOF

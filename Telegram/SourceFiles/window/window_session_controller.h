@@ -87,6 +87,7 @@ struct CloudTheme;
 enum class CloudThemeType;
 class PhotoMedia;
 class Thread;
+class CommunityInfo;
 class Forum;
 class ForumTopic;
 class SavedSublist;
@@ -475,6 +476,10 @@ public:
 	void closeForum();
 	const rpl::variable<Data::Forum*> &shownForum() const;
 
+	void openCommunity(not_null<Data::CommunityInfo*> info);
+	void closeCommunity();
+	const rpl::variable<Data::CommunityInfo*> &openedCommunity() const;
+
 	void setActiveChatEntry(Dialogs::RowDescriptor row);
 	void setActiveChatEntry(Dialogs::Key key);
 	Dialogs::RowDescriptor activeChatEntryCurrent() const;
@@ -529,7 +534,6 @@ public:
 	void resizeForThirdSection();
 	void closeThirdSection();
 
-	[[nodiscard]] bool canShowSeparateWindow(SeparateId id) const;
 	void showPeer(not_null<PeerData*> peer, MsgId msgId = ShowAtUnreadMsgId);
 
 	void startOrJoinGroupCall(not_null<PeerData*> peer);
@@ -763,6 +767,7 @@ private:
 	void init();
 	void setupShortcuts();
 	bool checkRegistrationPassword();
+	void setupScreenshotProtection();
 	void checkOpenedFilter();
 	void suggestArchiveAndMute();
 	void activateFirstChatsFilter();
@@ -803,6 +808,8 @@ private:
 	void checkNonPremiumLimitToastUpload(FullMsgId id);
 
 	bool openFolderInDifferentWindow(not_null<Data::Folder*> folder);
+	bool openCommunityInDifferentWindow(
+		not_null<Data::CommunityInfo*> info);
 	bool showForumInDifferentWindow(
 		not_null<Data::Forum*> forum,
 		const SectionShow &params,
@@ -810,7 +817,8 @@ private:
 
 	[[nodiscard]] bool openPhotoExternal(
 		not_null<PhotoData*> photo,
-		Data::FileOrigin origin);
+		Data::FileOrigin origin,
+		HistoryItem *item);
 	void handleDrawToReplyRequest(Data::DrawToReplyRequest request);
 	[[nodiscard]] Data::Thread *resolveDrawToReplyThread(
 		const Data::DrawToReplyRequest &request) const;
@@ -870,10 +878,13 @@ private:
 	rpl::variable<Data::Folder*> _openedFolder;
 	rpl::variable<Data::Forum*> _shownForum;
 	rpl::lifetime _shownForumLifetime;
+	rpl::variable<Data::CommunityInfo*> _openedCommunity;
+	rpl::lifetime _openedCommunityLifetime;
 
 	rpl::event_stream<> _filtersMenuChanged;
 
 	const std::shared_ptr<Ui::ChatTheme> _defaultChatTheme;
+	std::vector<QColor> _defaultChatThemeBubblesColors;
 	base::flat_map<CachedThemeKey, CachedTheme> _customChatThemes;
 	rpl::event_stream<std::shared_ptr<Ui::ChatTheme>> _cachedThemesStream;
 	rpl::event_stream<> _giftSymbolLoaded;

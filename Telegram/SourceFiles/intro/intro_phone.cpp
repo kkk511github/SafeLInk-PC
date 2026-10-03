@@ -129,7 +129,7 @@ void PhoneWidget::setupQrLogin() {
 	}, qrLogin->lifetime());
 
 	qrLogin->setClickedCallback([=] {
-		goReplace<QrWidget>(Animate::Forward);
+		goNextOrBack<QrWidget>();
 	});
 }
 
@@ -288,7 +288,7 @@ void PhoneWidget::phoneSubmitFail(const MTP::Error &error) {
 
 	stopCheck();
 	_sentRequest = 0;
-	auto &err = error.type();
+	const auto &err = error.type();
 	if (err == u"SESSION_PASSWORD_NEEDED"_q) {
 		getData()->phone = DigitsOnly(_sentPhone);
 		getData()->phoneHash.clear();

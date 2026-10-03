@@ -61,6 +61,7 @@ enum class MenuButton {
 	RemoveFromMenu     = 0x02,
 	RemoveFromMainMenu = 0x04,
 	ShareGame          = 0x08,
+	Report             = 0x10,
 };
 inline constexpr bool is_flag_type(MenuButton) { return true; }
 using MenuButtons = base::flags<MenuButton>;
@@ -278,6 +279,7 @@ private:
 	void processDownloadRequest(const QJsonObject &args);
 	void openTgLink(const QJsonObject &args);
 	void openExternalLink(const QJsonObject &args);
+	void confirmExternalLink(const QString &url, Fn<void()> open);
 	void openInvoice(const QJsonObject &args);
 	void openPopup(const QJsonObject &args);
 	void openScanQrPopup(const QJsonObject &args);
@@ -290,6 +292,7 @@ private:
 	void replyCustomMethod(QJsonValue requestId, QJsonObject response);
 	void requestClipboardText(const QJsonObject &args);
 	void setupClosingBehaviour(const QJsonObject &args);
+	void requestClose();
 	void replyDeviceStorage(
 		const QJsonObject &args,
 		const QString &event,
@@ -311,7 +314,7 @@ private:
 	void postEvent(const QString &event);
 	void postEvent(const QString &event, EventData data);
 
-	[[nodiscard]] bool allowOpenLink() const;
+	[[nodiscard]] bool allowOpenLink();
 	[[nodiscard]] bool allowClipboardQuery() const;
 	[[nodiscard]] bool progressWithBackground() const;
 	[[nodiscard]] QRect progressRect() const;
@@ -360,7 +363,8 @@ private:
 	rpl::lifetime _bottomBarColorLifetime;
 	rpl::event_stream<> _downloadsUpdated;
 	rpl::variable<bool> _fullscreen = false;
-	crl::time _lastWebviewInteraction = 0;
+	crl::time _lastUserInteraction = 0;
+	crl::time _openLinkInteraction = 0;
 	bool _layerShown : 1 = false;
 	bool _webviewProgress : 1 = false;
 	bool _themeUpdateScheduled : 1 = false;
@@ -369,6 +373,7 @@ private:
 	bool _allowClipboardRead : 1 = false;
 	bool _sameOrigin : 1 = false;
 	bool _inBlockingRequest : 1 = false;
+	bool _closeRequested : 1 = false;
 	bool _headerColorReceived : 1 = false;
 	bool _bodyColorReceived : 1 = false;
 	bool _bottomColorReceived : 1 = false;

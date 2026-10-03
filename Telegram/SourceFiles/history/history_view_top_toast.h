@@ -10,11 +10,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
 
+#include <rpl/producer.h>
+
 namespace Main {
 class Session;
 } // namespace Main
 
 namespace Ui {
+class ElasticScroll;
 class ImportantTooltip;
 class ScrollArea;
 } // namespace Ui
@@ -44,7 +47,12 @@ private:
 class AnchoredTooltip final {
 public:
 	void show(
-		not_null<Ui::ScrollArea*> scroll,
+		not_null<QWidget*> scroll,
+		rpl::producer<> scrolls,
+		QRect globalArea,
+		TextWithEntities text);
+	void show(
+		not_null<Ui::ElasticScroll*> scroll,
 		QRect globalArea,
 		TextWithEntities text);
 	void hide();

@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_transcribes.h"
 #include "apiwrap.h"
 #include "styles/style_chat.h"
+#include "styles/style_chat_style.h"
 #include "styles/style_dialogs.h"
 
 namespace HistoryView {
@@ -499,6 +500,7 @@ QSize Document::countOptimalSize() {
 		const auto transcribes = &session->api().transcribes();
 		const auto media = _parent->data()->media();
 		if ((media && media->ttlSeconds())
+			|| IsHostedInstantViewMedia(_parent)
 			|| _realParent->isScheduled()
 			|| _realParent->isAdminLogEntry()
 			|| (!session->premium()
@@ -650,11 +652,10 @@ QSize Document::countCurrentSize(int newWidth) {
 	const auto hasTranscribe = voice && !voice->transcribeText.isEmpty();
 	const auto thumbed = Get<HistoryDocumentThumbed>();
 	const auto &st = thumbed ? st::msgFileThumbLayout : st::msgFileLayout;
-	const auto hostedInstantViewAudio = IsHostedInstantViewMedia(_parent)
-		&& (_data->isAudioFile() || _data->isVoiceMessage());
+	const auto hostedInstantView = IsHostedInstantViewMedia(_parent);
 	if (!captioned && !hasTranscribe) {
 		auto result = File::countCurrentSize(newWidth);
-		if (hostedInstantViewAudio) {
+		if (hostedInstantView) {
 			result.setWidth(std::max(newWidth, result.width()));
 		}
 		if (isBubbleBottom()) {
@@ -685,7 +686,7 @@ QSize Document::countCurrentSize(int newWidth) {
 		return result;
 	}
 
-	if (!hostedInstantViewAudio) {
+	if (!hostedInstantView) {
 		accumulate_min(newWidth, maxWidth());
 	}
 	auto newHeight = st.padding.top() + st.thumbSize + st.padding.bottom();
@@ -1204,7 +1205,7 @@ void Document::ensureDataMediaCreated() const {
 
 bool Document::downloadInCorner() const {
 	return _data->isAudioFile()
-		&& _realParent->allowsForward()
+		&& _realParent->allowsMediaDownloadControls()
 		&& _data->canBeStreamed()
 		&& !_data->inappPlaybackFailed();
 }
@@ -1710,6 +1711,15 @@ bool Document::updateStatusText() const {
 	if (statusSize != _statusSize) {
 		setStatusSize(statusSize, realDuration);
 	}
+	if (_data->uploading() && _data->uploadingData->preparing) {
+		const auto percent = int(base::SafeRound(
+			_data->uploadingData->prepareProgress * 100));
+		_statusText = tr::lng_send_video_preparing(
+			tr::now,
+			lt_progress,
+			QString::number(percent));
+		_statusSize = Ui::FileStatusSizeReady;
+	}
 	return showPause;
 }
 
@@ -1906,7 +1916,9 @@ bool Document::voiceProgressAnimationCallback(crl::time now) {
 				voice->playback->progressAnimation.stop();
 				voice->playback->progress.finish();
 			} else {
-				voice->playback->progress.update(qMin(dt, 1.), anim::linear);
+				voice->playback->progress.update(
+					std::min(dt, 1.),
+					anim::linear);
 			}
 			repaint();
 			return (dt < 1.);

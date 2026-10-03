@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/timer.h"
 #include "ui/rp_widget.h"
 #include "ui/effects/animations.h"
 
@@ -16,6 +17,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 class QGraphicsItem;
 class QGraphicsView;
+class QKeyEvent;
+
+namespace Storage {
+struct PhotoEditorMedia;
+} // namespace Storage
 
 namespace Editor {
 
@@ -31,7 +37,7 @@ public:
 		const QSize &imageSize,
 		std::shared_ptr<Controllers> controllers,
 		Fn<QImage(QRect)> blurSource,
-		bool fixedCrop = false);
+		const EditorData &data);
 	~Paint() override;
 
 	[[nodiscard]] std::shared_ptr<Scene> saveScene() const;
@@ -44,15 +50,27 @@ public:
 	void updateUndoState();
 
 	void createTextItem();
+	void createShapeItem(ShapeType shape, const Brush &brush, bool fill);
+	void armShapeTool(ShapeType shape, const Brush &brush, bool fill);
+	void disarmShapeTool();
 	void clearSelection();
+	void applyTextPrefs(const TextPrefs &prefs);
 	void setTextColor(const QColor &color);
 	void setSelectedTextColor(const QColor &color);
+	void applyBrushToSelectedShape(const Brush &brush);
+
+	[[nodiscard]] bool handleKeyPress(not_null<QKeyEvent*> e);
 
 	[[nodiscard]] rpl::producer<QColor> textColorRequests() const;
+	[[nodiscard]] rpl::producer<TextPrefs> textPrefsUsed() const;
 	[[nodiscard]] rpl::producer<QColor> textItemSelections() const;
 	[[nodiscard]] rpl::producer<> textItemDeselections() const;
 	[[nodiscard]] rpl::producer<bool> textEditStates() const;
+	[[nodiscard]] rpl::producer<QColor> shapeItemSelections() const;
+	[[nodiscard]] rpl::producer<> shapeItemDeselections() const;
+	[[nodiscard]] rpl::producer<bool> shapeToolStates() const;
 
+	[[nodiscard]] bool canHandleMimeData(const QMimeData *data) const;
 	void handleMimeData(const QMimeData *data);
 	void paintImage(QPainter &p, const QPixmap &image) const;
 	void resetView();
@@ -75,7 +93,15 @@ private:
 	};
 
 	ItemBase::Data itemBaseData() const;
+	ItemBase::Data mediaItemData(QSize mediaSize) const;
+	void addMediaItem(std::shared_ptr<ItemBase> item);
+	void addMedia(Storage::PhotoEditorMedia &&media);
+	void readMediaFile(const QString &path, const QByteArray &content);
+	void addImageItem(QImage &&image);
+	void addVideoItem(Storage::PhotoEditorMedia &&media);
+	void choosePhotoFile();
 	void applyViewTransform();
+	void bakeTextScales();
 
 	void clearRedoList();
 
@@ -85,6 +111,7 @@ private:
 	QPointer<QWidget> _viewport;
 	const QSize _imageSize;
 	const bool _fixedCrop = false;
+	const bool _composeAnimated = false;
 	QRect _imageGeometry;
 	QRect _outerGeometry;
 
@@ -113,6 +140,7 @@ private:
 	rpl::variable<bool> _hasUndo = true;
 	rpl::variable<bool> _hasRedo = true;
 	rpl::variable<bool> _textEditing = false;
+	base::Timer _textBakeTimer;
 
 
 };
