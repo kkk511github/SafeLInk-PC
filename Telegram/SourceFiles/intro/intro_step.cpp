@@ -166,6 +166,7 @@ void Step::finish(const MTPauth_Authorization &auth, QImage &&photo) {
 		if (const auto token = data.vfuture_auth_token()) {
 			Core::App().settings().rememberFutureAuthToken(
 				account().mtp().config().serverId(), qba(*token));
+			Core::App().saveSettings();
 		}
 		finish(data.vuser(), std::move(photo));
 	}, [&](const MTPDauth_authorizationSignUpRequired &data) {

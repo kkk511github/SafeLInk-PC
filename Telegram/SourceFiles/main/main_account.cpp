@@ -554,6 +554,9 @@ void Account::logOut() {
 		const auto serverId = _mtp->config().serverId();
 		_mtp->logout([=] { loggedOut(); }, [=](QByteArray token) {
 			Core::App().settings().rememberFutureAuthToken(serverId, token);
+			// The account is destroyed immediately after loggedOut(). Keep the
+			// future-auth token on disk before the next login can start.
+			Core::App().saveSettings();
 		});
 	} else {
 		// We log out because we've forgotten passcode.
